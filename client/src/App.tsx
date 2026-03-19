@@ -8,11 +8,21 @@ import Home from "./pages/Home";
 import CRMLeads from "./pages/CRMLeads";
 import Projects from "./pages/Projects";
 import Invoices from "./pages/Invoices";
+import ChatBot from "./components/ChatBot";
+import chatFlowsEN from "./data/chatFlowsAll";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
+    <>
+      {/* Manna ChatBot Widget - 11 Languages */}
+      <ChatBot 
+        flows={chatFlowsEN} 
+        language="en"
+        title="Manna Bot"
+        subtitle="11 Languages - AI Powered"
+      />
+      <Switch>
       <Route path="" component={Home} />
       <Route path="/crm/leads" component={CRMLeads} />
       <Route path="/projects" component={Projects} />
@@ -21,6 +31,7 @@ function Router() {
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
+    </>
   );
 }
 

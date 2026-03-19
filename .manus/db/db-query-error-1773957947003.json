@@ -1,0 +1,13 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS bot_leads (\n  id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),\n  name VARCHAR(255) NOT NULL,\n  business_name VARCHAR(255),\n  phone VARCHAR(20),\n  email VARCHAR(255),\n  language VARCHAR(10) DEFAULT 'en',\n  conversation_summary LONGTEXT,\n  status VARCHAR(50) DEFAULT 'new',\n  created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),\n  updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),\n  INDEX idx_status (status),\n  INDEX idx_created_at (created_at),\n  INDEX idx_language (language)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3cTqWMHEp4KFk3b.root --database BPKFxojZHsWrgVwJ2g6wmz --execute CREATE TABLE IF NOT EXISTS bot_leads (\n  id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),\n  name VARCHAR(255) NOT NULL,\n  business_name VARCHAR(255),\n  phone VARCHAR(20),\n  email VARCHAR(255),\n  language VARCHAR(10) DEFAULT 'en',\n  conversation_summary LONGTEXT,\n  status VARCHAR(50) DEFAULT 'new',\n  created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),\n  updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),\n  INDEX idx_status (status),\n  INDEX idx_created_at (created_at),\n  INDEX idx_language (language)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 10 column 57 near \"* 1000),",
+    "  updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),",
+    "  INDEX idx_status (status),",
+    "  INDEX idx_created_at (created_at),",
+    "  INDEX idx_language (language)",
+    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci\""
+  ]
+}
