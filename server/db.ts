@@ -1,6 +1,14 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser, users,
+  InsertLead, leads,
+  InsertClient, clients,
+  InsertProject, projects,
+  InsertInvoice, invoices,
+  InsertTask, tasks,
+  InsertBotConnection, botConnections
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +97,164 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============================================================
+// LEADS QUERIES
+// ============================================================
+export async function createLead(data: InsertLead) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(leads).values(data);
+  return result;
+}
+
+export async function getLeadById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
+  return result[0];
+}
+
+export async function listLeads(filters?: { status?: string; source?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  let query: any = db.select().from(leads);
+  if (filters?.status) {
+    query = query.where(eq(leads.status, filters.status as any));
+  }
+  return query;
+}
+
+export async function updateLead(id: number, data: Partial<InsertLead>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(leads).set(data).where(eq(leads.id, id));
+  return getLeadById(id);
+}
+
+// ============================================================
+// CLIENTS QUERIES
+// ============================================================
+export async function createClient(data: InsertClient) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(clients).values(data);
+  return result;
+}
+
+export async function getClientById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+  return result[0];
+}
+
+export async function listClients(filters?: { status?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  let query: any = db.select().from(clients);
+  if (filters?.status) {
+    query = query.where(eq(clients.status, filters.status as any));
+  }
+  return query;
+}
+
+export async function updateClient(id: number, data: Partial<InsertClient>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(clients).set(data).where(eq(clients.id, id));
+  return getClientById(id);
+}
+
+// ============================================================
+// PROJECTS QUERIES
+// ============================================================
+export async function createProject(data: InsertProject) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(projects).values(data);
+  return result;
+}
+
+export async function getProjectById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+  return result[0];
+}
+
+export async function listProjectsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(projects).where(eq(projects.clientId, clientId));
+}
+
+export async function updateProject(id: number, data: Partial<InsertProject>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(projects).set(data).where(eq(projects.id, id));
+  return getProjectById(id);
+}
+
+// ============================================================
+// INVOICES QUERIES
+// ============================================================
+export async function createInvoice(data: InsertInvoice) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(invoices).values(data);
+  return result;
+}
+
+export async function getInvoiceById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  return result[0];
+}
+
+export async function listInvoicesByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(invoices).where(eq(invoices.clientId, clientId));
+}
+
+export async function updateInvoice(id: number, data: Partial<InsertInvoice>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(invoices).set(data).where(eq(invoices.id, id));
+  return getInvoiceById(id);
+}
+
+// ============================================================
+// TASKS QUERIES
+// ============================================================
+export async function createTask(data: InsertTask) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(tasks).values(data);
+  return result;
+}
+
+export async function getTaskById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+  return result[0];
+}
+
+export async function listTasks(filters?: { status?: string; clientId?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  let query: any = db.select().from(tasks);
+  if (filters?.status) {
+    query = query.where(eq(tasks.status, filters.status as any));
+  }
+  return query;
+}
+
+export async function updateTask(id: number, data: Partial<InsertTask>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(tasks).set(data).where(eq(tasks.id, id));
+  return getTaskById(id);
+}

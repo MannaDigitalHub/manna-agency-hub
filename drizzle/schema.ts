@@ -1,4 +1,5 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { relations } from "drizzle-orm";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +26,151 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// ============================================================
+// LEADS TABLE — Apollo outreach tracking
+// ============================================================
+export const leads = mysqlTable("leads", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
+  businessName: varchar("businessName", { length: 255 }).notNull(),
+  businessType: varchar("businessType", { length: 100 }),
+  location: varchar("location", { length: 255 }),
+  status: mysqlEnum("status", ["prospect", "call_booked", "client", "not_interested", "on_hold"]).default("prospect").notNull(),
+  painPoint: text("painPoint"),
+  serviceInterest: varchar("serviceInterest", { length: 255 }),
+  callbackNumber: varchar("callbackNumber", { length: 20 }),
+  outreachDate: timestamp("outreachDate"),
+  lastFollowUp: timestamp("lastFollowUp"),
+  nextFollowUp: timestamp("nextFollowUp"),
+  notes: text("notes"),
+  source: varchar("source", { length: 50 }).default("apollo"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = typeof leads.$inferInsert;
+
+// ============================================================
+// CLIENTS TABLE — Paying customers
+// ============================================================
+export const clients = mysqlTable("clients", {
+  id: int("id").autoincrement().primaryKey(),
+  leadId: int("leadId"),
+  businessName: varchar("businessName", { length: 255 }).notNull(),
+  businessType: varchar("businessType", { length: 100 }),
+  contactName: varchar("contactName", { length: 255 }).notNull(),
+  contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
+  contactPhone: varchar("contactPhone", { length: 20 }).notNull(),
+  location: varchar("location", { length: 255 }),
+  monthlyRetainer: decimal("monthlyRetainer", { precision: 10, scale: 2 }).notNull(),
+  setupFee: decimal("setupFee", { precision: 10, scale: 2 }),
+  status: mysqlEnum("status", ["active", "paused", "cancelled", "trial"]).default("active").notNull(),
+  contractStartDate: timestamp("contractStartDate"),
+  contractEndDate: timestamp("contractEndDate"),
+  paymentMethod: varchar("paymentMethod", { length: 50 }),
+  paymentStatus: mysqlEnum("paymentStatus", ["current", "overdue", "failed", "pending"]).default("current"),
+  nextBillingDate: timestamp("nextBillingDate"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Client = typeof clients.$inferSelect;
+export type InsertClient = typeof clients.$inferInsert;
+
+// ============================================================
+// PROJECTS TABLE — Bot deployment tracking
+// ============================================================
+export const projects = mysqlTable("projects", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId").notNull(),
+  projectName: varchar("projectName", { length: 255 }).notNull(),
+  botName: varchar("botName", { length: 255 }),
+  whatChimpBotId: varchar("whatChimpBotId", { length: 255 }),
+  whatsappNumber: varchar("whatsappNumber", { length: 20 }),
+  status: mysqlEnum("status", ["discovery", "setup", "training", "testing", "live", "maintenance", "paused"]).default("discovery").notNull(),
+  discoveryDate: timestamp("discoveryDate"),
+  setupStartDate: timestamp("setupStartDate"),
+  goLiveDate: timestamp("goLiveDate"),
+  completionDate: timestamp("completionDate"),
+  services: varchar("services", { length: 500 }),
+  botDescription: text("botDescription"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = typeof projects.$inferInsert;
+
+// ============================================================
+// INVOICES TABLE — Payment tracking
+// ============================================================
+export const invoices = mysqlTable("invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId").notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 50 }).notNull().unique(),
+  invoiceType: mysqlEnum("invoiceType", ["setup", "retainer", "one_off"]).default("retainer").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  description: text("description"),
+  issueDate: timestamp("issueDate").defaultNow().notNull(),
+  dueDate: timestamp("dueDate"),
+  paidDate: timestamp("paidDate"),
+  status: mysqlEnum("status", ["draft", "sent", "paid", "overdue", "cancelled"]).default("draft").notNull(),
+  paymentMethod: varchar("paymentMethod", { length: 50 }),
+  payFastReference: varchar("payFastReference", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+
+// ============================================================
+// BOT_CONNECTIONS TABLE — WhatChimp integration
+// ============================================================
+export const botConnections = mysqlTable("bot_connections", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("projectId").notNull(),
+  whatChimpBotId: varchar("whatChimpBotId", { length: 255 }).notNull(),
+  whatsappNumber: varchar("whatsappNumber", { length: 20 }).notNull(),
+  apiKey: varchar("apiKey", { length: 500 }),
+  status: mysqlEnum("status", ["connected", "disconnected", "error"]).default("connected"),
+  lastSyncDate: timestamp("lastSyncDate"),
+  totalConversations: int("totalConversations").default(0),
+  totalMessages: int("totalMessages").default(0),
+  averageResponseTime: int("averageResponseTime"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BotConnection = typeof botConnections.$inferSelect;
+export type InsertBotConnection = typeof botConnections.$inferInsert;
+
+// ============================================================
+// TASKS TABLE — Workflow automation
+// ============================================================
+export const tasks = mysqlTable("tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId"),
+  projectId: int("projectId"),
+  leadId: int("leadId"),
+  taskType: mysqlEnum("taskType", ["onboarding", "follow_up", "milestone", "reminder", "payment", "support"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  status: mysqlEnum("status", ["pending", "in_progress", "completed", "cancelled"]).default("pending").notNull(),
+  dueDate: timestamp("dueDate"),
+  completedDate: timestamp("completedDate"),
+  priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium"),
+  assignedTo: varchar("assignedTo", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = typeof tasks.$inferInsert;
