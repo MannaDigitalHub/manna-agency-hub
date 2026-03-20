@@ -8,6 +8,8 @@ import Home from "./pages/Home";
 import CRMLeads from "./pages/CRMLeads";
 import Projects from "./pages/Projects";
 import Invoices from "./pages/Invoices";
+import BotLeadsDashboard from "./pages/BotLeadsDashboard";
+import WhatsAppIntegration from "./pages/WhatsAppIntegration";
 import ChatBot from "./components/ChatBot";
 import chatFlowsEN from "./data/chatFlowsAll";
 
@@ -25,6 +27,8 @@ function Router() {
       <Switch>
       <Route path="" component={Home} />
       <Route path="/crm/leads" component={CRMLeads} />
+      <Route path="/bot/leads" component={BotLeadsDashboard} />
+      <Route path="/bot/whatsapp" component={WhatsAppIntegration} />
       <Route path="/projects" component={Projects} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/404" component={NotFound} />

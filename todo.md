@@ -60,13 +60,15 @@
 ## Phase 8: Manna Bot Feature (11-Language Chatbot)
 - [x] Create ChatBot component with conversation flow engine
 - [x] Implement 12 conversation flows (Welcome, Consultation, Services, Results, AI, About, Contact, etc.)
-- [x] Integrate 11-language translations (EN, AF, XH, ZU, ST, TN, ND, SS, TS, VE, PT)
+- [x] Integrate 10-language translations (EN, AF, XH, ZU, ST, TN, ND, SS, TS, VE) - Portuguese removed
 - [x] Build lead capture form with database integration
 - [x] Add language selector and persistence
 - [x] Implement chat animations and UI polish
 - [x] Make mobile-responsive
-- [x] Test all flows in all 11 languages
-- [x] Deploy and verify live
+- [x] Test all flows in all 10 languages
+- [x] Create Bot Leads Dashboard for admin
+- [x] Add WhatsApp Integration setup page
+- [ ] Deploy and verify live
 
 ## Phase 9: Testing & Delivery
 - [ ] Unit tests for core procedures

@@ -25,9 +25,8 @@ Select your language:
 🇿🇦 Reply *Swati*
 🇿🇦 Reply *Tsonga*
 🇿🇦 Reply *Venda*
-🇵🇹 Reply *Português*
 ━━━━━━━━━━━━━━━━━━━━━`,
-    nextFlows: ['english', 'afrikaans', 'xhosa', 'zulu', 'sotho', 'tswana', 'ndebele', 'swati', 'tsonga', 'venda', 'portugues'],
+    nextFlows: ['english', 'afrikaans', 'xhosa', 'zulu', 'sotho', 'tswana', 'ndebele', 'swati', 'tsonga', 'venda'],
   },
   
   english: {
@@ -479,30 +478,6 @@ O mu lefapong le le nepile. Le ku fapana na palo ya Home Affairs — ga yi tla n
     nextFlows: ['consultation', 'services', 'results', 'ai', 'about', 'contact', 'menu'],
   },
 
-  portugues: {
-    id: 'portugues',
-    triggers: ['pt', 'portugues', 'português'],
-    response: `Eish, você escolheu Português! Uma pessoa de cultura. 😄
-
-Bem-vindo — eu sou *MannaBot*, o cérebro de IA por trás do *Manna Digital Hub*. Pense em mim como aquele amigo inteligente que realmente sabe do que está falando E está lá quando você precisa. Diferentemente de algumas pessoas que conhecemos. 😅
-
-Aqui está a coisa — você não ligou para este número por acaso. Algo o trouxe aqui. Talvez sejam as perguntas que não são respondidas às 23h. Talvez seja o site que foi atualizado pela última vez durante uma presidência diferente. Talvez seja apenas aquele sentimento incômodo de que seus concorrentes estão ganhando silenciosamente enquanto você está ocupado sobrevivendo.
-
-Soa familiar? 😏
-
-Você está exatamente no lugar certo. E diferentemente da fila na Home Affairs — isso não vai demorar. 😄
-
-━━━━━━━━━━━━━━━━━━━━━
-🎯 Responda *Consulta*
-💼 Responda *Serviços*
-🏆 Responda *Resultados*
-❓ Responda *IA*
-🤝 Responda *Sobre*
-💬 Responda *Contato*
-🏠 Responda *Menu*
-━━━━━━━━━━━━━━━━━━━━━`,
-    nextFlows: ['consultation', 'services', 'results', 'ai', 'about', 'contact', 'menu'],
-  },
 };
 
 export default chatFlowsEN;
