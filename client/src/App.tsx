@@ -10,6 +10,9 @@ import Projects from "./pages/Projects";
 import Invoices from "./pages/Invoices";
 import BotLeadsDashboard from "./pages/BotLeadsDashboard";
 import WhatsAppIntegration from "./pages/WhatsAppIntegration";
+import Services from "./pages/Services";
+import ServiceDetail from "./pages/ServiceDetail";
+import PricingCalculator from "./pages/PricingCalculator";
 import ChatBot from "./components/ChatBot";
 import chatFlowsEN from "./data/chatFlowsAll";
 
@@ -29,6 +32,9 @@ function Router() {
       <Route path="/crm/leads" component={CRMLeads} />
       <Route path="/bot/leads" component={BotLeadsDashboard} />
       <Route path="/bot/whatsapp" component={WhatsAppIntegration} />
+      <Route path="/services" component={Services} />
+      <Route path="/services/:id" component={ServiceDetail} />
+      <Route path="/pricing" component={PricingCalculator} />
       <Route path="/projects" component={Projects} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/404" component={NotFound} />
