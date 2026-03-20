@@ -13,6 +13,10 @@ import WhatsAppIntegration from "./pages/WhatsAppIntegration";
 import Services from "./pages/Services";
 import ServiceDetail from "./pages/ServiceDetail";
 import PricingCalculator from "./pages/PricingCalculator";
+import About from "./pages/About";
+import StaffManagement from "./pages/StaffManagement";
+import ClientBotBuilder from "./pages/ClientBotBuilder";
+import OperatingManual from "./pages/OperatingManual";
 import ChatBot from "./components/ChatBot";
 import chatFlowsEN from "./data/chatFlowsAll";
 
@@ -35,6 +39,10 @@ function Router() {
       <Route path="/services" component={Services} />
       <Route path="/services/:id" component={ServiceDetail} />
       <Route path="/pricing" component={PricingCalculator} />
+      <Route path="/about" component={About} />
+      <Route path="/staff" component={StaffManagement} />
+      <Route path="/bot-builder" component={ClientBotBuilder} />
+      <Route path="/manual" component={OperatingManual} />
       <Route path="/projects" component={Projects} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/404" component={NotFound} />
