@@ -85,8 +85,10 @@
 - [x] Build comprehensive Operating Manual with tutorials
 - [x] Add all pages to main navigation
 - [ ] Publish website live
+- [ ] Connect TrueHost custom domain
 - [ ] Create Facebook page and connect
 - [ ] Provide WhatChimp migration guide
+- [ ] Final delivery and handoff
 
 ## Phase 11: Testing & Delivery
 - [ ] Unit tests for all new components
