@@ -2,10 +2,57 @@ import { Router, Request, Response } from 'express';
 import { getDb } from './db';
 import { leads } from '../drizzle/schema';
 import { invokeLLM } from './_core/llm';
+import { MANNA_SYSTEM_PROMPT } from './routers/aiChat';
 
 const router = Router();
 
-// Webhook verification (GET request from Meta)
+// ─── In-memory WhatsApp conversation store ───────────────────
+interface ConversationEntry {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+const waConversations = new Map<string, {
+  messages: ConversationEntry[];
+  lastActivity: number;
+  leadCaptured: boolean;
+}>();
+
+// Clean up old conversations every 30 minutes
+setInterval(() => {
+  const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+  const entries = Array.from(waConversations.entries());
+  for (const [phoneNumber, conv] of entries) {
+    if (conv.lastActivity < thirtyMinutesAgo) {
+      waConversations.delete(phoneNumber);
+    }
+  }
+}, 30 * 60 * 1000);
+
+function getOrCreateWAConversation(phoneNumber: string): ConversationEntry[] {
+  let conv = waConversations.get(phoneNumber);
+  if (!conv) {
+    conv = {
+      messages: [{ role: 'system', content: MANNA_SYSTEM_PROMPT }],
+      lastActivity: Date.now(),
+      leadCaptured: false,
+    };
+    waConversations.set(phoneNumber, conv);
+  }
+  conv.lastActivity = Date.now();
+
+  // Keep conversation history manageable
+  if (conv.messages.length > 22) {
+    conv.messages = [
+      conv.messages[0],
+      ...conv.messages.slice(-20),
+    ];
+  }
+
+  return conv.messages;
+}
+
+// ─── Webhook verification (GET request from Meta) ────────────
 router.get('/webhook', (req: Request, res: Response) => {
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'manna_webhook_token';
   const mode = req.query['hub.mode'];
@@ -13,21 +60,22 @@ router.get('/webhook', (req: Request, res: Response) => {
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === verifyToken) {
+    console.log('[WhatsApp] Webhook verified successfully');
     res.status(200).send(challenge);
   } else {
+    console.warn('[WhatsApp] Webhook verification failed');
     res.status(403).send('Forbidden');
   }
 });
 
-// Webhook receiver (POST request from Meta with incoming messages)
+// ─── Webhook receiver (POST from Meta with incoming messages) ─
 router.post('/webhook', async (req: Request, res: Response) => {
   try {
     const body = req.body;
 
-    // Acknowledge receipt immediately
+    // Acknowledge receipt immediately (Meta requires 200 within 20 seconds)
     res.status(200).send('EVENT_RECEIVED');
 
-    // Check if this is a message event
     if (body.object === 'whatsapp_business_account') {
       const entry = body.entry?.[0];
       const changes = entry?.changes?.[0];
@@ -39,115 +87,116 @@ router.post('/webhook', async (req: Request, res: Response) => {
         const senderPhoneNumber = message.from;
         const messageText = message.text?.body || '';
 
-        // Process the message
-        await handleIncomingMessage(
-          senderPhoneNumber,
-          messageText,
-          phoneNumberId
-        );
+        if (messageText.trim()) {
+          await handleIncomingMessage(senderPhoneNumber, messageText, phoneNumberId);
+        }
       }
     }
   } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).send('Internal Server Error');
+    console.error('[WhatsApp] Webhook error:', error);
   }
 });
 
+// ─── Handle incoming WhatsApp message ────────────────────────
 async function handleIncomingMessage(
   senderPhoneNumber: string,
   messageText: string,
   phoneNumberId: string
 ) {
   try {
-    // Detect language or use default
-    const language = detectLanguage(messageText);
+    console.log(`[WhatsApp] Message from ${senderPhoneNumber}: ${messageText.substring(0, 100)}`);
 
-    // Get bot response using LLM
-    const botResponse = await generateBotResponse(messageText, language);
+    // Get conversation history for this phone number
+    const messages = getOrCreateWAConversation(senderPhoneNumber);
 
-    // Save lead if it's a consultation request
-    if (isConsultationRequest(messageText)) {
-      const db = await getDb();
-      if (db) {
-        await db.insert(leads).values({
-          name: 'WhatsApp Lead',
-          businessName: 'Pending',
-          phone: senderPhoneNumber,
-          status: 'prospect',
-          painPoint: messageText,
-          source: 'whatsapp',
-        });
+    // Add user message
+    messages.push({ role: 'user', content: messageText });
+
+    // Call LLM with full conversation context
+    const response = await invokeLLM({
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+    });
+
+    const rawContent = response.choices?.[0]?.message?.content;
+    let botResponse = typeof rawContent === 'string'
+      ? rawContent
+      : 'Thank you for your message! How can I help your business today? 😊';
+
+    // Extract and save lead data if present
+    const leadMatch = botResponse.match(/\[LEAD_CAPTURED:\s*(.+?)\]/);
+    if (leadMatch) {
+      const leadString = leadMatch[1];
+      const leadData: Record<string, string> = {};
+      const fields = leadString.match(/(\w+)="([^"]*?)"/g);
+      if (fields) {
+        for (const field of fields) {
+          const [key, value] = field.split('=');
+          leadData[key] = value.replace(/"/g, '');
+        }
       }
+
+      // Save lead to database
+      const conv = waConversations.get(senderPhoneNumber);
+      if (conv && !conv.leadCaptured && Object.keys(leadData).length > 0) {
+        conv.leadCaptured = true;
+        try {
+          const db = await getDb();
+          if (db) {
+            const leadId = crypto.randomUUID();
+            const now = Date.now();
+            await (db as any).execute(
+              `INSERT INTO bot_leads (
+                id, name, business_name, phone, email, language,
+                conversation_summary, status, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                leadId,
+                leadData.name || 'WhatsApp Lead',
+                leadData.business || null,
+                senderPhoneNumber,
+                leadData.email || null,
+                'auto',
+                `WhatsApp conversation with ${senderPhoneNumber}. Interest: ${leadData.interest || 'General'}`,
+                'new',
+                now,
+                now,
+              ]
+            );
+            console.log(`[WhatsApp] Lead captured: ${leadData.name} from ${senderPhoneNumber}`);
+          }
+        } catch (err) {
+          console.error('[WhatsApp] Error saving lead:', err);
+        }
+      }
+
+      // Remove lead tag from visible response
+      botResponse = botResponse.replace(/\[LEAD_CAPTURED:.*?\]/, '').trim();
     }
+
+    // Add assistant response to conversation history
+    messages.push({ role: 'assistant', content: botResponse });
 
     // Send response back via WhatsApp
     await sendWhatsAppMessage(phoneNumberId, senderPhoneNumber, botResponse);
+
+    console.log(`[WhatsApp] Response sent to ${senderPhoneNumber}`);
   } catch (error) {
-    console.error('Error handling message:', error);
+    console.error('[WhatsApp] Error handling message:', error);
+
+    // Send fallback message
+    try {
+      await sendWhatsAppMessage(
+        phoneNumberId,
+        senderPhoneNumber,
+        "Thanks for reaching out! I'm having a brief moment — please try again or WhatsApp Mela directly at +27 73 406 1526 😊"
+      );
+    } catch (fallbackError) {
+      console.error('[WhatsApp] Fallback message also failed:', fallbackError);
+    }
   }
 }
 
-function detectLanguage(text: string): string {
-  const lowerText = text.toLowerCase();
-
-  // Simple language detection based on keywords
-  if (lowerText.includes('hola') || lowerText.includes('español')) return 'es';
-  if (lowerText.includes('bonjour') || lowerText.includes('français')) return 'fr';
-  if (lowerText.includes('hallo') || lowerText.includes('deutsch')) return 'de';
-  if (lowerText.includes('ciao') || lowerText.includes('italiano')) return 'it';
-  if (lowerText.includes('olá') || lowerText.includes('português')) return 'pt';
-  if (lowerText.includes('hej') || lowerText.includes('svenska')) return 'sv';
-  if (lowerText.includes('hallo') || lowerText.includes('afrikaans')) return 'af';
-  if (lowerText.includes('sawubona') || lowerText.includes('xhosa')) return 'xh';
-  if (lowerText.includes('sawubona') || lowerText.includes('zulu')) return 'zu';
-
-  return 'en'; // Default to English
-}
-
-async function generateBotResponse(
-  userMessage: string,
-  language: string
-): Promise<string> {
-  const systemPrompt = `You are Manna Bot, an AI assistant for Manna Digital Hub - an AI automation agency. 
-Your role is to help businesses that are losing sales because they can't answer phones or WhatsApp messages.
-You provide next-level automation solutions.
-
-Respond in ${language} language.
-Keep responses concise (1-2 sentences max).
-Be helpful and professional.`;
-
-  const response = await invokeLLM({
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage },
-    ],
-  });
-
-  const content = response.choices?.[0]?.message?.content;
-  if (typeof content === 'string') {
-    return content;
-  }
-  return 'Thank you for your message. How can we help?';
-}
-
-function isConsultationRequest(text: string): boolean {
-  const consultationKeywords = [
-    'consultation',
-    'consult',
-    'free',
-    'book',
-    'help',
-    'need',
-    'interested',
-    'info',
-    'information',
-    'quote',
-  ];
-
-  const lowerText = text.toLowerCase();
-  return consultationKeywords.some((keyword) => lowerText.includes(keyword));
-}
-
+// ─── Send WhatsApp message via Meta API ──────────────────────
 async function sendWhatsAppMessage(
   phoneNumberId: string,
   recipientPhoneNumber: string,
@@ -159,7 +208,8 @@ async function sendWhatsAppMessage(
     throw new Error('WhatsApp access token not configured');
   }
 
-  const url = `https://graph.instagram.com/v18.0/${phoneNumberId}/messages`;
+  // Use the correct Meta Graph API URL
+  const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -180,8 +230,8 @@ async function sendWhatsAppMessage(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    console.error('WhatsApp API error:', error);
+    const error = await response.text();
+    console.error('[WhatsApp] API error:', error);
     throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
   }
 }

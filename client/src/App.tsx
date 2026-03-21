@@ -11,17 +11,14 @@ import Projects from "./pages/Projects";
 import Invoices from "./pages/Invoices";
 import BotLeadsDashboard from "./pages/BotLeadsDashboard";
 import ChatBot from "./components/ChatBot";
-import chatFlowsEN from "./data/chatFlowsAll";
 
 function Router() {
   return (
     <>
-      {/* Manna ChatBot Widget — visible on all pages */}
+      {/* Manna ChatBot Widget — AI-powered, visible on all pages */}
       <ChatBot
-        flows={chatFlowsEN}
-        language="en"
         title="Manna Bot"
-        subtitle="11 Languages — AI Powered"
+        subtitle="AI Powered — 14 Languages"
       />
       <Switch>
         {/* Public: Customer-facing landing page */}

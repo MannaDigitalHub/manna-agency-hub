@@ -125,11 +125,21 @@
 - [ ] Build Analytics reporting page with charts
 
 ## Phase 14: AI-Powered Bot Upgrade
-- [ ] Upgrade ChatBot to use LLM for intelligent responses
-- [ ] Connect ChatBot lead capture to backend API
-- [ ] AI-powered conversation (not keyword matching)
+- [x] Upgrade ChatBot to use LLM for intelligent responses
+- [x] Connect ChatBot lead capture to backend API
+- [x] AI-powered conversation (not keyword matching)
 
 ## Phase 15: Tests & Final Delivery
 - [x] Write vitest tests for key procedures
 - [ ] Responsive design verification
 - [ ] Save checkpoint and deliver
+
+## Phase 16: AI LLM Integration for Manna Bot
+- [x] Create server-side AI chat procedure with comprehensive system prompt
+- [x] Design system prompt that sells Manna services, qualifies leads, speaks all 11 SA languages
+- [x] Build conversation history management (per-session context)
+- [x] Rebuild ChatBot frontend with AI streaming responses
+- [x] Connect WhatsApp webhook to AI-powered responses (replace keyword matching)
+- [x] Add lead capture detection (AI identifies when to capture contact details)
+- [x] Write vitest tests for AI chat procedure
+- [x] Verify end-to-end conversation quality
