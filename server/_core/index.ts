@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import whatsappWebhookRouter from "../whatsapp-webhook";
+import facebookWebhookRouter from "../facebook-webhook";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,6 +39,8 @@ async function startServer() {
   registerOAuthRoutes(app);
   // WhatsApp webhook under /api/whatsapp
   app.use("/api/whatsapp", whatsappWebhookRouter);
+  // Facebook Lead Ads webhook under /api/facebook
+  app.use("/api/facebook", facebookWebhookRouter);
   // tRPC API
   app.use(
     "/api/trpc",

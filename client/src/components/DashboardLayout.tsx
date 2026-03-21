@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, FolderKanban, FileText, MessageCircle, Home } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, FolderKanban, FileText, MessageCircle, Home, Facebook } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +33,7 @@ const menuItems = [
   { icon: MessageCircle, label: "Bot Leads", path: "/admin/bot-leads" },
   { icon: FolderKanban, label: "Projects", path: "/admin/projects" },
   { icon: FileText, label: "Invoices", path: "/admin/invoices" },
+  { icon: Facebook, label: "Facebook Leads", path: "/admin/facebook-leads" },
   { icon: Home, label: "Back to Site", path: "/" },
 ];
 

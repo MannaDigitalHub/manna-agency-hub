@@ -174,3 +174,59 @@ export const tasks = mysqlTable("tasks", {
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
+
+// ============================================================
+// BOT_LEADS TABLE — Leads captured by Manna Bot (website + WhatsApp)
+// ============================================================
+export const botLeads = mysqlTable("bot_leads", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  businessName: varchar("businessName", { length: 255 }),
+  phone: varchar("phone", { length: 20 }),
+  email: varchar("email", { length: 320 }),
+  language: varchar("language", { length: 10 }).default("en"),
+  conversationSummary: text("conversationSummary"),
+  source: varchar("source", { length: 50 }).default("website_bot"),
+  status: mysqlEnum("status", ["new", "contacted", "qualified", "converted", "lost"]).default("new").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BotLead = typeof botLeads.$inferSelect;
+export type InsertBotLead = typeof botLeads.$inferInsert;
+
+// ============================================================
+// FACEBOOK_LEADS TABLE — Leads from Facebook Lead Ads
+// ============================================================
+export const facebookLeads = mysqlTable("facebook_leads", {
+  id: int("id").autoincrement().primaryKey(),
+  leadgenId: varchar("leadgenId", { length: 100 }).notNull().unique(),
+  formId: varchar("formId", { length: 100 }),
+  adId: varchar("adId", { length: 100 }),
+  adgroupId: varchar("adgroupId", { length: 100 }),
+  pageId: varchar("pageId", { length: 100 }),
+  campaignName: varchar("campaignName", { length: 255 }),
+  formName: varchar("formName", { length: 255 }),
+  adName: varchar("adName", { length: 255 }),
+  // Lead contact info (fetched from Graph API)
+  fullName: varchar("fullName", { length: 255 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
+  city: varchar("city", { length: 255 }),
+  company: varchar("company", { length: 255 }),
+  jobTitle: varchar("jobTitle", { length: 255 }),
+  // All raw field data as JSON
+  rawFieldData: text("rawFieldData"),
+  // Processing status
+  status: mysqlEnum("status", ["new", "contacted", "qualified", "converted", "lost", "synced_to_crm"]).default("new").notNull(),
+  whatsappFollowUpSent: int("whatsappFollowUpSent").default(0),
+  crmLeadId: int("crmLeadId"),
+  notes: text("notes"),
+  fbCreatedTime: timestamp("fbCreatedTime"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FacebookLead = typeof facebookLeads.$inferSelect;
+export type InsertFacebookLead = typeof facebookLeads.$inferInsert;

@@ -143,3 +143,14 @@
 - [x] Add lead capture detection (AI identifies when to capture contact details)
 - [x] Write vitest tests for AI chat procedure
 - [x] Verify end-to-end conversation quality
+
+## Phase 17: Facebook Lead Forms Integration
+- [x] Create Facebook webhook receiver endpoint (GET verify + POST lead data)
+- [x] Build lead processing logic (parse Facebook lead form fields, map to CRM)
+- [x] Store Facebook leads in database with source tracking (facebook_ads)
+- [x] Auto-trigger WhatsApp follow-up for new Facebook leads
+- [x] Build Facebook Leads section in admin dashboard (view, filter, status)
+- [x] Add Facebook campaign tracking (ad name, form name, campaign)
+- [x] Send owner notification on new Facebook lead
+- [x] Write vitest tests for Facebook webhook and lead processing
+- [x] Verify end-to-end flow (89 tests passing)

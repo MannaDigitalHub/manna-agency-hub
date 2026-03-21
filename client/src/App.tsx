@@ -10,6 +10,7 @@ import CRMLeads from "./pages/CRMLeads";
 import Projects from "./pages/Projects";
 import Invoices from "./pages/Invoices";
 import BotLeadsDashboard from "./pages/BotLeadsDashboard";
+import FacebookLeads from "./pages/FacebookLeads";
 import ChatBot from "./components/ChatBot";
 
 function Router() {
@@ -30,6 +31,7 @@ function Router() {
         <Route path="/admin/bot-leads" component={BotLeadsDashboard} />
         <Route path="/admin/projects" component={Projects} />
         <Route path="/admin/invoices" component={Invoices} />
+        <Route path="/admin/facebook-leads" component={FacebookLeads} />
 
         {/* Fallback */}
         <Route path="/404" component={NotFound} />

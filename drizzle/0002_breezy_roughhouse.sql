@@ -1,0 +1,43 @@
+CREATE TABLE `bot_leads` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`name` varchar(255) NOT NULL,
+	`businessName` varchar(255),
+	`phone` varchar(20),
+	`email` varchar(320),
+	`language` varchar(10) DEFAULT 'en',
+	`conversationSummary` text,
+	`source` varchar(50) DEFAULT 'website_bot',
+	`status` enum('new','contacted','qualified','converted','lost') NOT NULL DEFAULT 'new',
+	`notes` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `bot_leads_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `facebook_leads` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`leadgenId` varchar(100) NOT NULL,
+	`formId` varchar(100),
+	`adId` varchar(100),
+	`adgroupId` varchar(100),
+	`pageId` varchar(100),
+	`campaignName` varchar(255),
+	`formName` varchar(255),
+	`adName` varchar(255),
+	`fullName` varchar(255),
+	`email` varchar(320),
+	`phone` varchar(20),
+	`city` varchar(255),
+	`company` varchar(255),
+	`jobTitle` varchar(255),
+	`rawFieldData` text,
+	`status` enum('new','contacted','qualified','converted','lost','synced_to_crm') NOT NULL DEFAULT 'new',
+	`whatsappFollowUpSent` int DEFAULT 0,
+	`crmLeadId` int,
+	`notes` text,
+	`fbCreatedTime` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `facebook_leads_id` PRIMARY KEY(`id`),
+	CONSTRAINT `facebook_leads_leadgenId_unique` UNIQUE(`leadgenId`)
+);

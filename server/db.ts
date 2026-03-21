@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { desc } from "drizzle-orm";
 import {
   InsertUser, users,
   InsertLead, leads,
@@ -7,7 +8,9 @@ import {
   InsertProject, projects,
   InsertInvoice, invoices,
   InsertTask, tasks,
-  InsertBotConnection, botConnections
+  InsertBotConnection, botConnections,
+  InsertBotLead, botLeads,
+  InsertFacebookLead, facebookLeads
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -257,4 +260,88 @@ export async function updateTask(id: number, data: Partial<InsertTask>) {
   if (!db) throw new Error("Database not available");
   await db.update(tasks).set(data).where(eq(tasks.id, id));
   return getTaskById(id);
+}
+
+// ============================================================
+// BOT LEADS QUERIES
+// ============================================================
+export async function createBotLead(data: InsertBotLead) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(botLeads).values(data);
+  return result;
+}
+
+export async function listBotLeads() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select().from(botLeads).orderBy(desc(botLeads.createdAt));
+}
+
+export async function updateBotLead(id: number, data: Partial<InsertBotLead>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(botLeads).set(data).where(eq(botLeads.id, id));
+  const result = await db.select().from(botLeads).where(eq(botLeads.id, id)).limit(1);
+  return result[0];
+}
+
+// ============================================================
+// FACEBOOK LEADS QUERIES
+// ============================================================
+export async function createFacebookLead(data: InsertFacebookLead) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(facebookLeads).values(data);
+  return result;
+}
+
+export async function getFacebookLeadByLeadgenId(leadgenId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(facebookLeads).where(eq(facebookLeads.leadgenId, leadgenId)).limit(1);
+  return result[0];
+}
+
+export async function listFacebookLeads(filters?: { status?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  let query: any = db.select().from(facebookLeads).orderBy(desc(facebookLeads.createdAt));
+  if (filters?.status) {
+    query = db.select().from(facebookLeads).where(eq(facebookLeads.status, filters.status as any)).orderBy(desc(facebookLeads.createdAt));
+  }
+  return query;
+}
+
+export async function updateFacebookLead(id: number, data: Partial<InsertFacebookLead>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(facebookLeads).set(data).where(eq(facebookLeads.id, id));
+  const result = await db.select().from(facebookLeads).where(eq(facebookLeads.id, id)).limit(1);
+  return result[0];
+}
+
+export async function syncFacebookLeadToCRM(fbLeadId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const fbLead = await db.select().from(facebookLeads).where(eq(facebookLeads.id, fbLeadId)).limit(1);
+  if (!fbLead[0]) throw new Error("Facebook lead not found");
+  const fl = fbLead[0];
+  // Create a CRM lead from the Facebook lead
+  const crmLead: InsertLead = {
+    name: fl.fullName || "Facebook Lead",
+    email: fl.email,
+    phone: fl.phone,
+    businessName: fl.company || "Unknown",
+    businessType: fl.jobTitle || undefined,
+    location: fl.city || undefined,
+    status: "prospect",
+    source: "facebook_ads",
+    notes: `From Facebook Lead Ad. Form: ${fl.formName || fl.formId}. Ad: ${fl.adName || fl.adId}. Campaign: ${fl.campaignName || "N/A"}.`,
+  };
+  const result = await db.insert(leads).values(crmLead);
+  const insertId = (result as any)[0]?.insertId;
+  // Update the FB lead with the CRM lead ID
+  await db.update(facebookLeads).set({ status: "synced_to_crm", crmLeadId: insertId }).where(eq(facebookLeads.id, fbLeadId));
+  return insertId;
 }
