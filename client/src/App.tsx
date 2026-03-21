@@ -4,67 +4,48 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import LandingPage from "./pages/LandingPage";
+import AdminDashboard from "./pages/AdminDashboard";
 import CRMLeads from "./pages/CRMLeads";
 import Projects from "./pages/Projects";
 import Invoices from "./pages/Invoices";
 import BotLeadsDashboard from "./pages/BotLeadsDashboard";
-import WhatsAppIntegration from "./pages/WhatsAppIntegration";
-import Services from "./pages/Services";
-import ServiceDetail from "./pages/ServiceDetail";
-import PricingCalculator from "./pages/PricingCalculator";
-import About from "./pages/About";
-import StaffManagement from "./pages/StaffManagement";
-import ClientBotBuilder from "./pages/ClientBotBuilder";
-import OperatingManual from "./pages/OperatingManual";
 import ChatBot from "./components/ChatBot";
 import chatFlowsEN from "./data/chatFlowsAll";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <>
-      {/* Manna ChatBot Widget - 11 Languages */}
-      <ChatBot 
-        flows={chatFlowsEN} 
+      {/* Manna ChatBot Widget — visible on all pages */}
+      <ChatBot
+        flows={chatFlowsEN}
         language="en"
         title="Manna Bot"
-        subtitle="11 Languages - AI Powered"
+        subtitle="11 Languages — AI Powered"
       />
       <Switch>
-      <Route path="" component={Home} />
-      <Route path="/crm/leads" component={CRMLeads} />
-      <Route path="/bot/leads" component={BotLeadsDashboard} />
-      <Route path="/bot/whatsapp" component={WhatsAppIntegration} />
-      <Route path="/services" component={Services} />
-      <Route path="/services/:id" component={ServiceDetail} />
-      <Route path="/pricing" component={PricingCalculator} />
-      <Route path="/about" component={About} />
-      <Route path="/staff" component={StaffManagement} />
-      <Route path="/bot-builder" component={ClientBotBuilder} />
-      <Route path="/manual" component={OperatingManual} />
-      <Route path="/projects" component={Projects} />
-      <Route path="/invoices" component={Invoices} />
-      <Route path="/404" component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+        {/* Public: Customer-facing landing page */}
+        <Route path="" component={LandingPage} />
+
+        {/* Admin: Protected dashboard routes */}
+        <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin/leads" component={CRMLeads} />
+        <Route path="/admin/bot-leads" component={BotLeadsDashboard} />
+        <Route path="/admin/projects" component={Projects} />
+        <Route path="/admin/invoices" component={Invoices} />
+
+        {/* Fallback */}
+        <Route path="/404" component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
     </>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="dark"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <Router />

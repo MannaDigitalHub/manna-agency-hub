@@ -96,3 +96,40 @@
 - [ ] UI/UX testing and refinement
 - [ ] Performance optimization
 - [ ] Final checkpoint and publish
+
+## Phase 12: COMPLETE REBUILD — Customer-Facing Landing Page (The Storefront)
+- [x] Set up Google Fonts (Inter + DM Sans)
+- [x] Configure brand color palette (dark theme + green/emerald accents)
+- [x] Build stunning Hero section with animated elements and live bot indicators
+- [x] Build Problem section (losing money while you sleep)
+- [x] Build Services section (3 core services + bundle)
+- [x] Build How It Works section (4 steps)
+- [x] Build Who We Serve section (8 industries)
+- [x] Build Stats/Social Proof section (9x conversion etc)
+- [x] Build Pricing section (3 tiers with CTAs)
+- [x] Build About section (SA is 3 years behind)
+- [x] Build Contact/CTA section (book discovery call)
+- [x] Build Payment section (EFT details)
+- [x] Build sticky navigation header
+- [x] Build footer with links and contact info
+- [x] Add scrolling ticker/marquee animation
+- [x] Integrate AI-powered ChatBot widget on landing page
+
+## Phase 13: REBUILD — Admin Dashboard (The Factory)
+- [x] Update DashboardLayout with proper Manna navigation
+- [ ] Build admin dashboard with real metrics and charts
+- [ ] Rebuild CRM Leads management with pipeline view
+- [ ] Build Clients management page
+- [ ] Rebuild Projects tracking with Kanban view
+- [ ] Rebuild Invoices/Billing with payment tracking
+- [ ] Build Analytics reporting page with charts
+
+## Phase 14: AI-Powered Bot Upgrade
+- [ ] Upgrade ChatBot to use LLM for intelligent responses
+- [ ] Connect ChatBot lead capture to backend API
+- [ ] AI-powered conversation (not keyword matching)
+
+## Phase 15: Tests & Final Delivery
+- [x] Write vitest tests for key procedures
+- [ ] Responsive design verification
+- [ ] Save checkpoint and deliver
