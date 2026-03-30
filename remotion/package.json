@@ -1,0 +1,28 @@
+{
+  "name": "manna-remotion-reels",
+  "version": "1.0.0",
+  "description": "Manna Digital Hub social media reels",
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion render",
+    "render:missed-message": "remotion render src/index.ts MissedMessage out/MissedMessage.mp4",
+    "render:seven-days": "remotion render src/index.ts SevenDays out/SevenDays.mp4",
+    "render:after-hours": "remotion render src/index.ts AfterHours out/AfterHours.mp4",
+    "render:all": "pnpm render:missed-message && pnpm render:seven-days && pnpm render:after-hours"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.441",
+    "@remotion/core": "^1.0.0-y.46",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "remotion": "^4.0.441",
+    "typescript": "^5.4.0"
+  },
+  "remotion": {
+    "entrypoint": "src/index.ts"
+  }
+}
