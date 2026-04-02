@@ -1,10 +1,20 @@
 import { router, publicProcedure } from '../_core/trpc';
 import { z } from 'zod';
-import { invokeLLM } from '../_core/llm';
+import Anthropic from '@anthropic-ai/sdk';
+import { ENV } from '../_core/env';
 import { getDb } from '../db';
 
+// ─── Anthropic client (key never leaves the server) ──────────
+const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey || process.env.ANTHROPIC_API_KEY });
+
+// ─── Model ────────────────────────────────────────────────────
+// Haiku 4.5: fastest + cheapest, perfect for high-volume conversational bot
+const BOT_MODEL = 'claude-haiku-4-5' as const;
+
 // ─── Manna Bot System Prompt ─────────────────────────────────
-const MANNA_SYSTEM_PROMPT = `You are **Manna Bot**, the AI-powered virtual assistant for **Manna Digital Hub** — a South African AI automation agency that helps businesses stop losing leads, clients, and revenue by automating their customer communication.
+// NOTE: cache_control is added at call time — the system prompt itself is stored
+// as a plain string so it can also be shared with the WhatsApp webhook.
+export const MANNA_SYSTEM_PROMPT = `You are **Manna Bot**, the AI-powered virtual assistant for **Manna Digital Hub** — a South African AI automation agency that helps businesses stop losing leads, clients, and revenue by automating their customer communication.
 
 ## YOUR IDENTITY
 - Name: Manna Bot
@@ -135,206 +145,178 @@ When someone wants to book a discovery call:
 Remember: You are the living proof that this technology works. Every great conversation you have is a sale waiting to happen.`;
 
 // ─── In-memory conversation store (per session) ──────────────
+// Production upgrade path: swap Map for Redis with TTL when scaling beyond 1 server.
 interface ConversationEntry {
-  role: 'system' | 'user' | 'assistant';
+  role: 'user' | 'assistant';
   content: string;
 }
 
-const conversationStore = new Map<string, {
+interface ConversationState {
   messages: ConversationEntry[];
   lastActivity: number;
   leadCaptured: boolean;
-}>();
+}
 
-// Clean up old conversations every 30 minutes
+const conversationStore = new Map<string, ConversationState>();
+
+// Purge stale sessions every 30 minutes
 setInterval(() => {
-  const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-  const entries = Array.from(conversationStore.entries());
-  for (const [sessionId, conv] of entries) {
-    if (conv.lastActivity < thirtyMinutesAgo) {
-      conversationStore.delete(sessionId);
-    }
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [id, conv] of Array.from(conversationStore.entries())) {
+    if (conv.lastActivity < cutoff) conversationStore.delete(id);
   }
 }, 30 * 60 * 1000);
 
-function getOrCreateConversation(sessionId: string): ConversationEntry[] {
+function getOrCreateConversation(sessionId: string): ConversationState {
   let conv = conversationStore.get(sessionId);
   if (!conv) {
-    conv = {
-      messages: [{ role: 'system', content: MANNA_SYSTEM_PROMPT }],
-      lastActivity: Date.now(),
-      leadCaptured: false,
-    };
+    conv = { messages: [], lastActivity: Date.now(), leadCaptured: false };
     conversationStore.set(sessionId, conv);
   }
   conv.lastActivity = Date.now();
-
-  // Keep conversation history manageable (system + last 20 messages)
-  if (conv.messages.length > 22) {
-    conv.messages = [
-      conv.messages[0], // system prompt
-      ...conv.messages.slice(-20),
-    ];
+  // Keep last 20 turns (40 messages)
+  if (conv.messages.length > 40) {
+    conv.messages = conv.messages.slice(-40);
   }
-
-  return conv.messages;
+  return conv;
 }
 
-// ─── Parse lead data from AI response ────────────────────────
-function extractLeadData(response: string): {
+// ─── Parse [LEAD_CAPTURED: ...] tag from AI response ─────────
+export function extractLeadData(response: string): {
   cleanResponse: string;
-  leadData: { name?: string; business?: string; phone?: string; email?: string; interest?: string } | null;
+  leadData: Record<string, string> | null;
 } {
-  const leadMatch = response.match(/\[LEAD_CAPTURED:\s*(.+?)\]/);
-  if (!leadMatch) {
-    return { cleanResponse: response, leadData: null };
-  }
+  const match = response.match(/\[LEAD_CAPTURED:\s*([\s\S]+?)\]/);
+  if (!match) return { cleanResponse: response, leadData: null };
 
-  const leadString = leadMatch[1];
   const leadData: Record<string, string> = {};
-
-  const fields = leadString.match(/(\w+)="([^"]*?)"/g);
-  if (fields) {
-    for (const field of fields) {
-      const [key, value] = field.split('=');
-      leadData[key] = value.replace(/"/g, '');
-    }
+  const fields = match[1].match(/(\w+)="([^"]*?)"/g) ?? [];
+  for (const field of fields) {
+    const eqIdx = field.indexOf('=');
+    const key = field.slice(0, eqIdx);
+    const value = field.slice(eqIdx + 2, -1); // strip surrounding quotes
+    leadData[key] = value;
   }
 
-  // Remove the lead tag from the visible response
-  const cleanResponse = response.replace(/\[LEAD_CAPTURED:.*?\]/, '').trim();
-
-  return {
-    cleanResponse,
-    leadData: Object.keys(leadData).length > 0 ? leadData : null,
-  };
+  const cleanResponse = response.replace(/\[LEAD_CAPTURED:[\s\S]*?\]/, '').trim();
+  return { cleanResponse, leadData: Object.keys(leadData).length > 0 ? leadData : null };
 }
 
-// ─── Save lead to database ───────────────────────────────────
-async function saveLeadToDb(leadData: Record<string, string>, conversationSummary: string) {
+// ─── Save bot-captured lead to database ──────────────────────
+export async function saveLeadToDb(
+  leadData: Record<string, string>,
+  conversationSummary: string,
+  source: string = 'website_bot',
+): Promise<void> {
   try {
     const db = await getDb();
     if (!db) return;
-
-    const leadId = crypto.randomUUID();
-    const now = Date.now();
-
     await (db as any).execute(
-      `INSERT INTO bot_leads (
-        id, name, business_name, phone, email, language,
-        conversation_summary, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO bot_leads
+         (name, business_name, phone, email, language, conversation_summary, source, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW())`,
       [
-        leadId,
-        leadData.name || 'Unknown',
-        leadData.business || null,
-        leadData.phone || null,
-        leadData.email || null,
+        leadData.name ?? 'Unknown',
+        leadData.business ?? null,
+        leadData.phone ?? null,
+        leadData.email ?? null,
         'en',
         conversationSummary,
-        'new',
-        now,
-        now,
-      ]
+        source,
+      ],
     );
-
-    console.log(`[Manna Bot] Lead captured: ${leadData.name} (${leadData.business || 'N/A'})`);
-  } catch (error) {
-    console.error('[Manna Bot] Error saving lead:', error);
+    console.log(`[MannaBot] Lead saved: ${leadData.name} (${leadData.business ?? 'N/A'})`);
+  } catch (err) {
+    console.error('[MannaBot] Failed to save lead:', err);
   }
+}
+
+// ─── Core: call Claude Haiku and return cleaned response ─────
+export async function callMannaBot(
+  sessionMessages: ConversationEntry[],
+  newUserMessage: string,
+): Promise<{ reply: string; rawReply: string }> {
+  const response = await anthropic.messages.create({
+    model: BOT_MODEL,
+    max_tokens: 1024,
+    // System prompt with cache_control — static text qualifies for caching
+    // on Haiku (min 4096 tokens). The prompt is ~1800 tokens so no cache hit
+    // yet, but adding the marker costs nothing and future growth will benefit.
+    system: [
+      {
+        type: 'text',
+        text: MANNA_SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+    messages: [
+      // Inject prior conversation history
+      ...sessionMessages.map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: newUserMessage },
+    ],
+  });
+
+  const rawReply =
+    response.content[0]?.type === 'text'
+      ? response.content[0].text
+      : 'How can I help your business today? 😊';
+
+  const { cleanResponse: reply } = extractLeadData(rawReply);
+  return { reply, rawReply };
 }
 
 // ─── tRPC Router ─────────────────────────────────────────────
 export const aiChatRouter = router({
   /**
-   * Send a message to Manna Bot and get an AI response
+   * Send a message to Manna Bot and get an AI response.
+   * The Anthropic API key is NEVER sent to the browser — all LLM calls are server-side.
    */
   sendMessage: publicProcedure
     .input(
       z.object({
-        sessionId: z.string().min(1),
+        sessionId: z.string().min(1).max(128),
         message: z.string().min(1).max(2000),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       const { sessionId, message } = input;
-
-      // Get or create conversation
-      const messages = getOrCreateConversation(sessionId);
-
-      // Add user message
-      messages.push({ role: 'user', content: message });
+      const conv = getOrCreateConversation(sessionId);
 
       try {
-        // Call LLM
-        const response = await invokeLLM({
-          messages: messages.map(m => ({ role: m.role, content: m.content })),
-        });
+        const { reply, rawReply } = await callMannaBot(conv.messages, message);
 
-        const rawContent = response.choices?.[0]?.message?.content;
-        const assistantMessage = typeof rawContent === 'string' ? rawContent : 'Thank you for your message. How can I help you today?';
+        // Persist turn in history
+        conv.messages.push({ role: 'user', content: message });
+        conv.messages.push({ role: 'assistant', content: reply });
 
-        // Extract lead data if present
-        const { cleanResponse, leadData } = extractLeadData(assistantMessage);
-
-        // Add assistant response to conversation history
-        messages.push({ role: 'assistant', content: cleanResponse });
-
-        // Save lead if captured
-        if (leadData) {
-          const conv = conversationStore.get(sessionId);
-          if (conv && !conv.leadCaptured) {
-            conv.leadCaptured = true;
-            const summary = messages
-              .filter(m => m.role !== 'system')
-              .map(m => `${m.role}: ${m.content}`)
-              .join('\n');
-            await saveLeadToDb(leadData, summary);
-          }
+        // Extract and save lead (only once per session)
+        const { leadData } = extractLeadData(rawReply);
+        if (leadData && !conv.leadCaptured) {
+          conv.leadCaptured = true;
+          const summary = conv.messages
+            .map(m => `${m.role}: ${m.content}`)
+            .join('\n');
+          await saveLeadToDb(leadData, summary, 'website_bot');
         }
 
-        return {
-          success: true,
-          message: cleanResponse,
-          leadCaptured: !!leadData,
-        };
-      } catch (error) {
-        console.error('[Manna Bot] LLM error:', error);
-
-        // Fallback response
-        const fallback = "I'm having a moment — but I'm still here! 😊 Could you try again, or reach out to Mela directly on WhatsApp: +27 73 406 1526";
-        messages.push({ role: 'assistant', content: fallback });
-
-        return {
-          success: true,
-          message: fallback,
-          leadCaptured: false,
-        };
+        return { success: true, message: reply, leadCaptured: !!leadData };
+      } catch (err) {
+        console.error('[MannaBot] Claude API error:', err);
+        const fallback =
+          "I'm having a moment — but I'm still here! 😊 Please try again, or reach Mela on WhatsApp: +27 73 406 1526";
+        conv.messages.push({ role: 'user', content: message });
+        conv.messages.push({ role: 'assistant', content: fallback });
+        return { success: false, message: fallback, leadCaptured: false };
       }
     }),
 
-  /**
-   * Get conversation history for a session
-   */
   getHistory: publicProcedure
     .input(z.object({ sessionId: z.string() }))
     .query(({ input }) => {
       const conv = conversationStore.get(input.sessionId);
-      if (!conv) return { messages: [] };
-
-      return {
-        messages: conv.messages
-          .filter(m => m.role !== 'system')
-          .map(m => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
-      };
+      return { messages: conv?.messages ?? [] };
     }),
 
-  /**
-   * Clear conversation history
-   */
   clearHistory: publicProcedure
     .input(z.object({ sessionId: z.string() }))
     .mutation(({ input }) => {
@@ -342,6 +324,3 @@ export const aiChatRouter = router({
       return { success: true };
     }),
 });
-
-// ─── Export system prompt for WhatsApp webhook ───────────────
-export { MANNA_SYSTEM_PROMPT };

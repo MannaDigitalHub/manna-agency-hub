@@ -74,6 +74,10 @@ export const clients = mysqlTable("clients", {
   paymentStatus: mysqlEnum("paymentStatus", ["current", "overdue", "failed", "pending"]).default("current"),
   nextBillingDate: timestamp("nextBillingDate"),
   notes: text("notes"),
+  /** Client portal access code — crypto-random, e.g. FALCON-MANGO-7291 */
+  accessCode: varchar("accessCode", { length: 50 }).unique(),
+  /** PayFast m_payment_id used in subscription forms to link ITNs back to client */
+  merchantPaymentId: varchar("merchantPaymentId", { length: 100 }).unique(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -230,3 +234,46 @@ export const facebookLeads = mysqlTable("facebook_leads", {
 
 export type FacebookLead = typeof facebookLeads.$inferSelect;
 export type InsertFacebookLead = typeof facebookLeads.$inferInsert;
+
+// ============================================================
+// PAYMENTS TABLE — Immutable PayFast ITN audit log
+// One row per ITN event. Never updated after insert.
+// ============================================================
+export const payments = mysqlTable("payments", {
+  id: int("id").autoincrement().primaryKey(),
+  /** PayFast's unique pf_payment_id — the dedup key */
+  payfastPaymentId: varchar("payfastPaymentId", { length: 100 }).notNull().unique(),
+  /** Optional back-reference to our internal client (via m_payment_id lookup) */
+  merchantPaymentId: varchar("merchantPaymentId", { length: 100 }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  itemName: varchar("itemName", { length: 255 }),
+  paymentStatus: mysqlEnum("paymentStatus", ["COMPLETE", "FAILED", "PENDING", "CANCELLED", "UNKNOWN"]).notNull(),
+  /** 1 if our MD5 check passed, 0 if it failed (stored for forensics) */
+  signatureValid: int("signatureValid").default(0),
+  /** Full raw ITN payload as JSON — enables replay if processing failed */
+  rawItn: text("rawItn").notNull(),
+  processedAt: timestamp("processedAt").defaultNow().notNull(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = typeof payments.$inferInsert;
+
+// ============================================================
+// SUBSCRIPTIONS TABLE — PayFast recurring billing state
+// ============================================================
+export const subscriptions = mysqlTable("subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId").notNull().unique(),
+  payfastToken: varchar("payfastToken", { length: 100 }),
+  payfastSubscriptionId: varchar("payfastSubscriptionId", { length: 100 }),
+  packageName: mysqlEnum("packageName", ["starter", "bundle", "chatbot", "social"]).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  status: mysqlEnum("status", ["active", "paused", "cancelled", "failed"]).default("active").notNull(),
+  failedCount: int("failedCount").default(0),
+  nextRunDate: timestamp("nextRunDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;

@@ -10,7 +10,9 @@ import {
   InsertTask, tasks,
   InsertBotConnection, botConnections,
   InsertBotLead, botLeads,
-  InsertFacebookLead, facebookLeads
+  InsertFacebookLead, facebookLeads,
+  InsertPayment, payments,
+  InsertSubscription, subscriptions,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -344,4 +346,107 @@ export async function syncFacebookLeadToCRM(fbLeadId: number) {
   // Update the FB lead with the CRM lead ID
   await db.update(facebookLeads).set({ status: "synced_to_crm", crmLeadId: insertId }).where(eq(facebookLeads.id, fbLeadId));
   return insertId;
+}
+
+// ============================================================
+// PAYMENTS QUERIES — Idempotent PayFast ITN records
+// ============================================================
+
+export interface CreatePaymentArgs {
+  payfastPaymentId: string;
+  merchantPaymentId?: string | null;
+  amount: number;
+  itemName?: string | null;
+  paymentStatus: string;
+  signatureValid: number;
+  rawItn: string;
+}
+
+/**
+ * Insert a payment row ONLY if the payfastPaymentId has not been seen before.
+ * Returns true if a new row was inserted, false if it was a duplicate.
+ */
+export async function createPaymentIfNew(data: CreatePaymentArgs): Promise<boolean> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create payment: database not available");
+    return false;
+  }
+  try {
+    await (db as any).execute(
+      `INSERT IGNORE INTO payments
+         (payfastPaymentId, merchantPaymentId, amount, itemName, paymentStatus, signatureValid, rawItn, processedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        data.payfastPaymentId,
+        data.merchantPaymentId ?? null,
+        data.amount,
+        data.itemName ?? null,
+        data.paymentStatus,
+        data.signatureValid,
+        data.rawItn,
+      ],
+    );
+    // affectedRows === 0 means duplicate (INSERT IGNORE skipped it)
+    const [[{ affectedRows }]] = await (db as any).execute(
+      'SELECT ROW_COUNT() AS affectedRows'
+    );
+    return Number(affectedRows) > 0;
+  } catch (err: any) {
+    // Duplicate key on unique constraint — not a new payment
+    if (err?.code === 'ER_DUP_ENTRY') return false;
+    throw err;
+  }
+}
+
+// ============================================================
+// CLIENT PAYMENT STATUS — updated after successful PayFast ITN
+// ============================================================
+
+/**
+ * Find a client by merchantPaymentId and update their paymentStatus.
+ * merchantPaymentId is set when creating the PayFast subscription form
+ * and is echoed back in the ITN as m_payment_id.
+ */
+export async function updateClientPaymentStatus(
+  merchantPaymentId: string,
+  paymentStatus: 'current' | 'overdue' | 'failed' | 'pending',
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await (db as any).execute(
+    `UPDATE clients SET paymentStatus = ?, updatedAt = NOW() WHERE merchantPaymentId = ?`,
+    [paymentStatus, merchantPaymentId],
+  );
+}
+
+// ============================================================
+// SUBSCRIPTIONS QUERIES
+// ============================================================
+export async function upsertSubscription(data: InsertSubscription): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .insert(subscriptions)
+    .values(data)
+    .onDuplicateKeyUpdate({
+      set: {
+        payfastToken: data.payfastToken,
+        payfastSubscriptionId: data.payfastSubscriptionId,
+        status: data.status,
+        amount: data.amount,
+        nextRunDate: data.nextRunDate,
+      },
+    });
+}
+
+export async function getSubscriptionByClientId(clientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.clientId, clientId))
+    .limit(1);
+  return result[0];
 }

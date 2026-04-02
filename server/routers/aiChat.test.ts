@@ -34,10 +34,12 @@ describe("AI Chat Integration", () => {
       expect(content).toContain("clearHistory");
     });
 
-    it("uses invokeLLM for AI responses", () => {
+    it("uses Anthropic Claude for AI responses", () => {
       const content = readFileSync(resolve(__dirname, "aiChat.ts"), "utf-8");
-      expect(content).toContain("invokeLLM");
-      expect(content).toContain("import { invokeLLM }");
+      // Switched from Forge/Gemini to Anthropic SDK
+      expect(content).toContain("anthropic");
+      expect(content).toContain("callMannaBot");
+      expect(content).toContain("@anthropic-ai/sdk");
     });
 
     it("has conversation history management with cleanup", () => {
@@ -45,7 +47,8 @@ describe("AI Chat Integration", () => {
       expect(content).toContain("conversationStore");
       expect(content).toContain("getOrCreateConversation");
       expect(content).toContain("setInterval");
-      expect(content).toContain("thirtyMinutesAgo");
+      // Cleanup uses 'cutoff' variable (renamed from thirtyMinutesAgo for clarity)
+      expect(content).toContain("cutoff");
     });
 
     it("has lead extraction from AI responses", () => {
@@ -135,29 +138,32 @@ describe("AI Chat Integration", () => {
   });
 
   describe("WhatsApp Webhook AI Integration", () => {
-    it("whatsapp-webhook.ts uses the shared MANNA_SYSTEM_PROMPT", () => {
+    it("whatsapp-webhook.ts imports shared bot helpers from aiChat router", () => {
       const filePath = resolve(serverDir, "whatsapp-webhook.ts");
       expect(existsSync(filePath)).toBe(true);
       const content = readFileSync(filePath, "utf-8");
-      expect(content).toContain("import { MANNA_SYSTEM_PROMPT }");
+      // Imports callMannaBot + extractLeadData instead of raw MANNA_SYSTEM_PROMPT + invokeLLM
+      expect(content).toContain("callMannaBot");
+      expect(content).toContain("extractLeadData");
       expect(content).toContain("from './routers/aiChat'");
     });
 
     it("WhatsApp webhook has conversation history per phone number", () => {
       const content = readFileSync(resolve(serverDir, "whatsapp-webhook.ts"), "utf-8");
       expect(content).toContain("waConversations");
-      expect(content).toContain("getOrCreateWAConversation");
+      expect(content).toContain("getOrCreateWAConv");
     });
 
-    it("WhatsApp webhook uses invokeLLM", () => {
+    it("WhatsApp webhook uses Claude via callMannaBot", () => {
       const content = readFileSync(resolve(serverDir, "whatsapp-webhook.ts"), "utf-8");
-      expect(content).toContain("invokeLLM");
+      expect(content).toContain("callMannaBot");
     });
 
     it("WhatsApp webhook extracts and saves leads", () => {
       const content = readFileSync(resolve(serverDir, "whatsapp-webhook.ts"), "utf-8");
-      expect(content).toContain("LEAD_CAPTURED");
-      expect(content).toContain("INSERT INTO bot_leads");
+      // Lead parsing is handled by extractLeadData (imported from aiChat)
+      expect(content).toContain("extractLeadData");
+      expect(content).toContain("saveLeadToDb");
     });
 
     it("WhatsApp webhook uses correct Meta Graph API URL", () => {
@@ -168,8 +174,9 @@ describe("AI Chat Integration", () => {
 
     it("WhatsApp webhook has fallback error handling", () => {
       const content = readFileSync(resolve(serverDir, "whatsapp-webhook.ts"), "utf-8");
-      expect(content).toContain("fallback");
-      expect(content).toContain("Fallback message also failed");
+      // Fallback sends user to Mela's WhatsApp on error
+      expect(content).toContain("+27 73 406 1526");
+      expect(content).toContain("catch");
     });
   });
 

@@ -1,238 +1,190 @@
 import { Router, Request, Response } from 'express';
-import { getDb } from './db';
-import { leads } from '../drizzle/schema';
-import { invokeLLM } from './_core/llm';
-import { MANNA_SYSTEM_PROMPT } from './routers/aiChat';
+import crypto from 'crypto';
+import { ENV } from './_core/env';
+import { callMannaBot, extractLeadData, saveLeadToDb, MANNA_SYSTEM_PROMPT } from './routers/aiChat';
 
 const router = Router();
 
 // ─── In-memory WhatsApp conversation store ───────────────────
-interface ConversationEntry {
-  role: 'system' | 'user' | 'assistant';
+// Keyed by sender phone number. Production: swap for Redis.
+interface WaConvEntry {
+  role: 'user' | 'assistant';
   content: string;
 }
-
-const waConversations = new Map<string, {
-  messages: ConversationEntry[];
+interface WaConvState {
+  messages: WaConvEntry[];
   lastActivity: number;
   leadCaptured: boolean;
-}>();
+}
 
-// Clean up old conversations every 30 minutes
+const waConversations = new Map<string, WaConvState>();
+
 setInterval(() => {
-  const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-  const entries = Array.from(waConversations.entries());
-  for (const [phoneNumber, conv] of entries) {
-    if (conv.lastActivity < thirtyMinutesAgo) {
-      waConversations.delete(phoneNumber);
-    }
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24-hour window for WA
+  for (const [phone, conv] of Array.from(waConversations.entries())) {
+    if (conv.lastActivity < cutoff) waConversations.delete(phone);
   }
 }, 30 * 60 * 1000);
 
-function getOrCreateWAConversation(phoneNumber: string): ConversationEntry[] {
-  let conv = waConversations.get(phoneNumber);
+function getOrCreateWAConv(phone: string): WaConvState {
+  let conv = waConversations.get(phone);
   if (!conv) {
-    conv = {
-      messages: [{ role: 'system', content: MANNA_SYSTEM_PROMPT }],
-      lastActivity: Date.now(),
-      leadCaptured: false,
-    };
-    waConversations.set(phoneNumber, conv);
+    conv = { messages: [], lastActivity: Date.now(), leadCaptured: false };
+    waConversations.set(phone, conv);
   }
   conv.lastActivity = Date.now();
-
-  // Keep conversation history manageable
-  if (conv.messages.length > 22) {
-    conv.messages = [
-      conv.messages[0],
-      ...conv.messages.slice(-20),
-    ];
-  }
-
-  return conv.messages;
+  if (conv.messages.length > 40) conv.messages = conv.messages.slice(-40);
+  return conv;
 }
 
-// ─── Webhook verification (GET request from Meta) ────────────
+// ─── Meta webhook signature verification ─────────────────────
+function verifyMetaSignature(rawBody: Buffer, signature: string, secret: string): boolean {
+  if (!secret || !signature) return false;
+  const [algo, hash] = signature.split('=');
+  if (algo !== 'sha256' || !hash) return false;
+  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(hash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+// ─── Webhook verification (GET — Meta handshake) ─────────────
 router.get('/webhook', (req: Request, res: Response) => {
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'manna_webhook_token';
+  const verifyToken = ENV.whatsappVerifyToken;
+  if (!verifyToken) {
+    console.error('[WhatsApp] WHATSAPP_VERIFY_TOKEN is not set');
+    return res.status(500).send('Server misconfigured');
+  }
+
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log('[WhatsApp] Webhook verified successfully');
-    res.status(200).send(challenge);
-  } else {
-    console.warn('[WhatsApp] Webhook verification failed');
-    res.status(403).send('Forbidden');
+    console.log('[WhatsApp] Webhook verified');
+    return res.status(200).send(challenge);
   }
+  console.warn('[WhatsApp] Webhook verification failed — token mismatch');
+  return res.status(403).send('Forbidden');
 });
 
-// ─── Webhook receiver (POST from Meta with incoming messages) ─
-router.post('/webhook', async (req: Request, res: Response) => {
+// ─── Webhook receiver (POST — incoming messages) ─────────────
+router.post('/webhook', async (req: Request & { rawBody?: Buffer }, res: Response) => {
+  // 1. Verify Meta HMAC signature
+  const signature = req.headers['x-hub-signature-256'] as string;
+  const appSecret = ENV.facebookAppSecret; // WhatsApp and FB share the same app secret
+  if (appSecret && req.rawBody) {
+    if (!verifyMetaSignature(req.rawBody, signature, appSecret)) {
+      console.warn('[WhatsApp] Invalid HMAC signature — rejecting webhook');
+      return res.status(403).send('Forbidden');
+    }
+  }
+
+  // 2. Acknowledge immediately (Meta requires < 20s)
+  res.status(200).send('EVENT_RECEIVED');
+
   try {
     const body = req.body;
+    if (body.object !== 'whatsapp_business_account') return;
 
-    // Acknowledge receipt immediately (Meta requires 200 within 20 seconds)
-    res.status(200).send('EVENT_RECEIVED');
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
 
-    if (body.object === 'whatsapp_business_account') {
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
+    if (!value?.messages) return;
 
-      if (value?.messages) {
-        const message = value.messages[0];
-        const phoneNumberId = value.metadata?.phone_number_id;
-        const senderPhoneNumber = message.from;
-        const messageText = message.text?.body || '';
+    const msg = value.messages[0];
+    const phoneNumberId: string = value.metadata?.phone_number_id ?? '';
+    const senderPhone: string = msg.from ?? '';
+    const messageId: string = msg.id ?? '';
+    const text: string = msg.text?.body ?? '';
 
-        if (messageText.trim()) {
-          await handleIncomingMessage(senderPhoneNumber, messageText, phoneNumberId);
-        }
-      }
+    if (!text.trim()) return;
+
+    // Deduplicate by message ID (simple in-memory set — Redis in production)
+    if (processedMessageIds.has(messageId)) {
+      console.log(`[WhatsApp] Duplicate message ${messageId} — skipped`);
+      return;
     }
-  } catch (error) {
-    console.error('[WhatsApp] Webhook error:', error);
+    processedMessageIds.add(messageId);
+    setTimeout(() => processedMessageIds.delete(messageId), 24 * 60 * 60 * 1000);
+
+    await handleIncomingMessage(senderPhone, text, phoneNumberId);
+  } catch (err) {
+    console.error('[WhatsApp] Webhook processing error:', err);
   }
 });
 
-// ─── Handle incoming WhatsApp message ────────────────────────
+// Simple in-memory dedup set (replace with Redis SETNX in production)
+const processedMessageIds = new Set<string>();
+
+// ─── Handle one incoming WhatsApp message ────────────────────
 async function handleIncomingMessage(
-  senderPhoneNumber: string,
-  messageText: string,
-  phoneNumberId: string
-) {
+  senderPhone: string,
+  text: string,
+  phoneNumberId: string,
+): Promise<void> {
+  console.log(`[WhatsApp] From ${senderPhone}: ${text.substring(0, 80)}`);
+
+  const conv = getOrCreateWAConv(senderPhone);
+
   try {
-    console.log(`[WhatsApp] Message from ${senderPhoneNumber}: ${messageText.substring(0, 100)}`);
+    const { reply, rawReply } = await callMannaBot(conv.messages, text);
 
-    // Get conversation history for this phone number
-    const messages = getOrCreateWAConversation(senderPhoneNumber);
+    // Persist turn
+    conv.messages.push({ role: 'user', content: text });
+    conv.messages.push({ role: 'assistant', content: reply });
 
-    // Add user message
-    messages.push({ role: 'user', content: messageText });
-
-    // Call LLM with full conversation context
-    const response = await invokeLLM({
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-    });
-
-    const rawContent = response.choices?.[0]?.message?.content;
-    let botResponse = typeof rawContent === 'string'
-      ? rawContent
-      : 'Thank you for your message! How can I help your business today? 😊';
-
-    // Extract and save lead data if present
-    const leadMatch = botResponse.match(/\[LEAD_CAPTURED:\s*(.+?)\]/);
-    if (leadMatch) {
-      const leadString = leadMatch[1];
-      const leadData: Record<string, string> = {};
-      const fields = leadString.match(/(\w+)="([^"]*?)"/g);
-      if (fields) {
-        for (const field of fields) {
-          const [key, value] = field.split('=');
-          leadData[key] = value.replace(/"/g, '');
-        }
-      }
-
-      // Save lead to database
-      const conv = waConversations.get(senderPhoneNumber);
-      if (conv && !conv.leadCaptured && Object.keys(leadData).length > 0) {
-        conv.leadCaptured = true;
-        try {
-          const db = await getDb();
-          if (db) {
-            const leadId = crypto.randomUUID();
-            const now = Date.now();
-            await (db as any).execute(
-              `INSERT INTO bot_leads (
-                id, name, business_name, phone, email, language,
-                conversation_summary, status, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                leadId,
-                leadData.name || 'WhatsApp Lead',
-                leadData.business || null,
-                senderPhoneNumber,
-                leadData.email || null,
-                'auto',
-                `WhatsApp conversation with ${senderPhoneNumber}. Interest: ${leadData.interest || 'General'}`,
-                'new',
-                now,
-                now,
-              ]
-            );
-            console.log(`[WhatsApp] Lead captured: ${leadData.name} from ${senderPhoneNumber}`);
-          }
-        } catch (err) {
-          console.error('[WhatsApp] Error saving lead:', err);
-        }
-      }
-
-      // Remove lead tag from visible response
-      botResponse = botResponse.replace(/\[LEAD_CAPTURED:.*?\]/, '').trim();
+    // Capture lead (once per number)
+    const { leadData } = extractLeadData(rawReply);
+    if (leadData && !conv.leadCaptured) {
+      conv.leadCaptured = true;
+      const summary = `WhatsApp conversation with ${senderPhone}. Interest: ${leadData.interest ?? 'General'}`;
+      // Override phone with the actual WA sender number
+      leadData.phone = senderPhone;
+      await saveLeadToDb(leadData, summary, 'whatsapp');
     }
 
-    // Add assistant response to conversation history
-    messages.push({ role: 'assistant', content: botResponse });
-
-    // Send response back via WhatsApp
-    await sendWhatsAppMessage(phoneNumberId, senderPhoneNumber, botResponse);
-
-    console.log(`[WhatsApp] Response sent to ${senderPhoneNumber}`);
-  } catch (error) {
-    console.error('[WhatsApp] Error handling message:', error);
-
-    // Send fallback message
+    await sendWhatsAppMessage(phoneNumberId, senderPhone, reply);
+    console.log(`[WhatsApp] Reply sent to ${senderPhone}`);
+  } catch (err) {
+    console.error(`[WhatsApp] Error handling message from ${senderPhone}:`, err);
     try {
       await sendWhatsAppMessage(
         phoneNumberId,
-        senderPhoneNumber,
-        "Thanks for reaching out! I'm having a brief moment — please try again or WhatsApp Mela directly at +27 73 406 1526 😊"
+        senderPhone,
+        "Thanks for reaching out! I'm having a brief moment — please try again or WhatsApp Mela: +27 73 406 1526 😊",
       );
-    } catch (fallbackError) {
-      console.error('[WhatsApp] Fallback message also failed:', fallbackError);
-    }
+    } catch { /* fallback failed — already logged */ }
   }
 }
 
-// ─── Send WhatsApp message via Meta API ──────────────────────
+// ─── Send a WhatsApp text message via Meta Graph API ─────────
 async function sendWhatsAppMessage(
   phoneNumberId: string,
-  recipientPhoneNumber: string,
-  messageText: string
+  to: string,
+  body: string,
 ): Promise<void> {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const token = ENV.whatsappAccessToken;
+  if (!token) throw new Error('[WhatsApp] WHATSAPP_ACCESS_TOKEN not set');
 
-  if (!accessToken) {
-    throw new Error('WhatsApp access token not configured');
-  }
-
-  // Use the correct Meta Graph API URL
   const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
-
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: recipientPhoneNumber,
-    type: 'text',
-    text: {
-      body: messageText,
-    },
-  };
-
-  const response = await fetch(url, {
+  const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body },
+    }),
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('[WhatsApp] API error:', error);
-    throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Meta API ${resp.status}: ${err}`);
   }
 }
 
