@@ -5,12 +5,15 @@ import { nanoid } from "nanoid";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
-import viteConfig from "../../vite.config";
 
 // import.meta.dirname requires Node 21.2+; use import.meta.url for Node 18/20 compat
 const _dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function setupVite(app: Express, server: Server) {
+  // Dynamic import so vite.config.ts (which uses import.meta.dirname) is never
+  // loaded in production where NODE_ENV=production and this function isn't called.
+  const { default: viteConfig } = await import("../../vite.config");
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
