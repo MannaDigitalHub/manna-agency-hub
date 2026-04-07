@@ -1,24 +1,26 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import { type Server } from "http";
-import { nanoid } from "nanoid";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 
 // import.meta.dirname requires Node 21.2+; use import.meta.url for Node 18/20 compat
 const _dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function setupVite(app: Express, server: Server) {
+  // All vite imports are dynamic so they're never loaded in production.
+  // createViteServer and nanoid are only needed in dev mode.
+  const [{ createServer: createViteServer }, { nanoid }] = await Promise.all([
+    import("vite"),
+    import("nanoid"),
+  ]);
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
 
-  // No vite.config import here — let Vite auto-detect its own config file.
-  // This prevents dev-only Vite plugins from being bundled into dist/index.js
-  // and required at runtime on the production server.
   const vite = await createViteServer({
     server: serverOptions,
     appType: "custom",

@@ -1841,12 +1841,14 @@ async function createContext(opts) {
 // server/_core/vite.ts
 import express from "express";
 import fs from "fs";
-import { nanoid } from "nanoid";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
 var _dirname = path.dirname(fileURLToPath(import.meta.url));
 async function setupVite(app, server) {
+  const [{ createServer: createViteServer }, { nanoid }] = await Promise.all([
+    import("vite"),
+    import("nanoid")
+  ]);
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
