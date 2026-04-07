@@ -18,6 +18,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 function ensureLogDir() {
@@ -127,7 +128,7 @@ var PROJECT_ROOT, LOG_DIR, MAX_LOG_SIZE_BYTES, TRIM_TARGET_BYTES, plugins, vite_
 var init_vite_config = __esm({
   "vite.config.ts"() {
     "use strict";
-    PROJECT_ROOT = import.meta.dirname;
+    PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
     LOG_DIR = path.join(PROJECT_ROOT, ".manus-logs");
     MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024;
     TRIM_TARGET_BYTES = Math.floor(MAX_LOG_SIZE_BYTES * 0.6);
@@ -136,16 +137,16 @@ var init_vite_config = __esm({
       plugins,
       resolve: {
         alias: {
-          "@": path.resolve(import.meta.dirname, "client", "src"),
-          "@shared": path.resolve(import.meta.dirname, "shared"),
-          "@assets": path.resolve(import.meta.dirname, "attached_assets")
+          "@": path.resolve(PROJECT_ROOT, "client", "src"),
+          "@shared": path.resolve(PROJECT_ROOT, "shared"),
+          "@assets": path.resolve(PROJECT_ROOT, "attached_assets")
         }
       },
-      envDir: path.resolve(import.meta.dirname),
-      root: path.resolve(import.meta.dirname, "client"),
-      publicDir: path.resolve(import.meta.dirname, "client", "public"),
+      envDir: path.resolve(PROJECT_ROOT),
+      root: path.resolve(PROJECT_ROOT, "client"),
+      publicDir: path.resolve(PROJECT_ROOT, "client", "public"),
       build: {
-        outDir: path.resolve(import.meta.dirname, "dist/public"),
+        outDir: path.resolve(PROJECT_ROOT, "dist/public"),
         emptyOutDir: true
       },
       server: {
@@ -2013,9 +2014,9 @@ import express from "express";
 import fs2 from "fs";
 import { nanoid } from "nanoid";
 import path2 from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath as fileURLToPath2 } from "url";
 import { createServer as createViteServer } from "vite";
-var _dirname = path2.dirname(fileURLToPath(import.meta.url));
+var _dirname = path2.dirname(fileURLToPath2(import.meta.url));
 async function setupVite(app, server) {
   const { default: viteConfig } = await Promise.resolve().then(() => (init_vite_config(), vite_config_exports));
   const serverOptions = {
