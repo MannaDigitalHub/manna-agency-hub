@@ -10,19 +10,16 @@ import { createServer as createViteServer } from "vite";
 const _dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function setupVite(app: Express, server: Server) {
-  // Dynamic import so vite.config.ts (which uses import.meta.dirname) is never
-  // loaded in production where NODE_ENV=production and this function isn't called.
-  const { default: viteConfig } = await import("../../vite.config");
-
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
     allowedHosts: true as const,
   };
 
+  // No vite.config import here — let Vite auto-detect its own config file.
+  // This prevents dev-only Vite plugins from being bundled into dist/index.js
+  // and required at runtime on the production server.
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
     server: serverOptions,
     appType: "custom",
   });
