@@ -1,17 +1,18 @@
 # Manna Agency Hub Memory
-_Last updated: 2026-04-08 | Health: 8/10 | Branch: claude/design-manna-hub-system-CLhpk_
+_Last updated: 2026-04-09 | Health: 9/10 | Branch: claude/design-manna-hub-system-CLhpk_
 
 ## Project Overview
 Manna Digital Hub — AI automation agency for South African businesses. React + Express + tRPC + Drizzle ORM + Anthropic Claude (MannaBot). Deployed on Truehost shared hosting (lon110.truehost.cloud), SSH port 1624.
 
 ## Where We Left Off
-Site returns **403 Forbidden** because PM2 got killed by cageFS resource limits → port 3000 went down → LiteSpeed proxy returns 403. The code is correct. PM2 needs to be restarted once resource limits clear.
+All 3 revenue features built and pushed (commit 9cc3453). Waiting for:
+1. Truehost routing fix (site still 403 — port 3000 blocked)
+2. WhatsApp Access Token (user adding sim tomorrow to verify Meta dev account)
 
-**Next step**: Wait ~5-10 min, then restart PM2:
+**Next step when Truehost fixes routing:**
 ```bash
-/home/qsfttpdi/.nvm/versions/node/v20.20.2/bin/pm2 kill
-/home/qsfttpdi/.nvm/versions/node/v20.20.2/bin/pm2 start ~/manna-agency-hub/dist/index.js --name manna-hub
-/home/qsfttpdi/.nvm/versions/node/v20.20.2/bin/pm2 save
+cd ~/manna-agency-hub && git pull origin claude/design-manna-hub-system-CLhpk
+/home/qsfttpdi/.nvm/versions/node/v20.20.2/bin/pm2 restart manna-hub
 ```
 
 ## Completed ✓
@@ -25,10 +26,10 @@ Site returns **403 Forbidden** because PM2 got killed by cageFS resource limits 
 - crontab set: `@reboot source ~/.nvm/nvm.sh && pm2 resurrect`
 
 ## Active Work 🔄
-- [ ] Restart PM2 after resource limits clear
-- [ ] Contact Truehost support to increase cageFS process limits (recurring issue)
-- [ ] Verify site loads at https://mannadigitalhub.co.za
-- [ ] Test admin login, MannaBot chatbot, PayFast payments
+- [ ] Truehost fix routing (ticket open) → then `git pull` + `pm2 restart`
+- [ ] WhatsApp Access Token — user adding SIM tomorrow to verify Meta dev account
+- [ ] Add `VAPI_WEBHOOK_SECRET` to .env (optional but recommended for security)
+- [ ] Register Vapi webhook URL in Vapi dashboard: `https://mannadigitalhub.co.za/api/vapi/webhook`
 
 ## Blockers 🚫
 - **cageFS resource limits** — Truehost shared hosting kills PM2 under load. Must contact support to fix permanently.
@@ -73,7 +74,8 @@ Site returns **403 Forbidden** because PM2 got killed by cageFS resource limits 
 
 ## Session Log
 - 2026-04-07: Initial deployment attempt — set up PM2, .htaccess proxy, SSL
-- 2026-04-08: Found manna-api (wrong app) competing on port 3000, caused resolutionsahomes.com redirect. Root cause: Manus runtime script in index.html. Removed runtime, fixed getLoginUrl, rebuilt and deployed. Fixed Force HTTPS loop in .htaccess. Site returns 403 (PM2 down due to resource limits) — redirect is fixed, just needs PM2 restart.
+- 2026-04-08: Fixed Manus runtime redirect, rebuilt bundle, fixed .htaccess
+- 2026-04-09: Collected env vars (SMTP, Vapi, WA IDs, PayFast confirmed). Built PayFast subscription form (server-side signed, public tRPC mutation), wired admin dashboard to live analytics, built Vapi voice webhook. All pushed (9cc3453).
 
 ## User Preferences
 - Direct communication, no fluff
@@ -81,7 +83,10 @@ Site returns **403 Forbidden** because PM2 got killed by cageFS resource limits 
 - Truehost cPanel at https://lon110.truehost.cloud:2083
 
 ## External Context
-- **Truehost support ticket**: Open — requested process limit increase and PM2 stabilisation
-- **PayFast**: Merchant ID 34228175, sandbox=false (live payments)
-- **Anthropic API**: Key in .env for MannaBot chatbot
-- **WhatsApp integration**: Deferred — not yet configured
+- **Truehost support ticket**: Open — routing conflict blocking port 3000
+- **PayFast**: Merchant ID 34228175, sandbox=false, passphrase confirmed, server IP 102.66.135.151 needs whitelisting in PayFast dashboard
+- **Anthropic API**: Key in .env ✓
+- **SMTP (Zoho)**: support@mannadigitalhub.co.za, app password in .env ✓
+- **Vapi**: API key in .env ✓ | Webhook URL to register: `/api/vapi/webhook`
+- **WhatsApp**: Phone number ID + verify token + WABA ID in .env | Access token pending (user getting SIM tomorrow)
+- **WhatChimp**: Connected to Manna Digital Hub WA account (separate from platform)
