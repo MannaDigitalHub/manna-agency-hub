@@ -221,8 +221,11 @@ var subscriptions = mysqlTable("subscriptions", {
 // server/_core/env.ts
 var ENV = {
   // ── Manus platform ──────────────────────────────────────────
-  appId: process.env.VITE_APP_ID ?? "",
+  appId: process.env.VITE_APP_ID ?? process.env.APP_ID ?? "manna-hub",
   cookieSecret: process.env.JWT_SECRET ?? "",
+  // ── Admin credentials ───────────────────────────────────────
+  adminEmail: process.env.ADMIN_EMAIL ?? "",
+  adminPassword: process.env.ADMIN_PASSWORD ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
@@ -831,6 +834,10 @@ function registerOAuthRoutes(app) {
     }
   });
 }
+
+// server/routers.ts
+import { TRPCError as TRPCError3 } from "@trpc/server";
+import { z as z7 } from "zod";
 
 // server/_core/systemRouter.ts
 import { z } from "zod";
@@ -1808,6 +1815,29 @@ var appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    login: publicProcedure.input(z7.object({ email: z7.string().email(), password: z7.string().min(1) })).mutation(async ({ input, ctx }) => {
+      if (!ENV.adminEmail || !ENV.adminPassword) {
+        throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Admin credentials not configured" });
+      }
+      if (input.email !== ENV.adminEmail || input.password !== ENV.adminPassword) {
+        throw new TRPCError3({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+      }
+      await upsertUser({
+        openId: "admin",
+        name: "Admin",
+        email: input.email,
+        loginMethod: "password",
+        role: "admin",
+        lastSignedIn: /* @__PURE__ */ new Date()
+      });
+      const sessionToken = await sdk.createSessionToken("admin", {
+        name: "Admin",
+        expiresInMs: ONE_YEAR_MS
+      });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return { success: true };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

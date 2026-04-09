@@ -18,8 +18,11 @@ export function requireEnv(key: string): string {
 
 export const ENV = {
   // ── Manus platform ──────────────────────────────────────────
-  appId: process.env.VITE_APP_ID ?? "",
+  appId: process.env.VITE_APP_ID ?? process.env.APP_ID ?? "manna-hub",
   cookieSecret: process.env.JWT_SECRET ?? "",
+  // ── Admin credentials ───────────────────────────────────────
+  adminEmail: process.env.ADMIN_EMAIL ?? "",
+  adminPassword: process.env.ADMIN_PASSWORD ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",

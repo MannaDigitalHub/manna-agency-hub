@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import LandingPage from "./pages/LandingPage";
+import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import CRMLeads from "./pages/CRMLeads";
 import Projects from "./pages/Projects";
@@ -25,7 +26,8 @@ function Router() {
         {/* Public: Customer-facing landing page */}
         <Route path="" component={LandingPage} />
 
-        {/* Admin: Protected dashboard routes */}
+        {/* Admin: Login + Protected dashboard routes */}
+        <Route path="/admin/login" component={AdminLogin} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/leads" component={CRMLeads} />
         <Route path="/admin/bot-leads" component={BotLeadsDashboard} />
