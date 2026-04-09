@@ -13,6 +13,12 @@ import Invoices from "./pages/Invoices";
 import BotLeadsDashboard from "./pages/BotLeadsDashboard";
 import FacebookLeads from "./pages/FacebookLeads";
 import ChatBot from "./components/ChatBot";
+import ClientLogin from "./pages/ClientLogin";
+import ClientSetup from "./pages/ClientSetup";
+import ClientForgotPassword from "./pages/ClientForgotPassword";
+import ClientResetPassword from "./pages/ClientResetPassword";
+import ClientPortal from "./pages/ClientPortal";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 function Router() {
   return (
@@ -34,6 +40,14 @@ function Router() {
         <Route path="/admin/projects" component={Projects} />
         <Route path="/admin/invoices" component={Invoices} />
         <Route path="/admin/facebook-leads" component={FacebookLeads} />
+
+        {/* Client portal */}
+        <Route path="/client" component={ClientLogin} />
+        <Route path="/client/setup" component={ClientSetup} />
+        <Route path="/client/forgot-password" component={ClientForgotPassword} />
+        <Route path="/client/reset-password" component={ClientResetPassword} />
+        <Route path="/client/portal" component={ClientPortal} />
+        <Route path="/privacy" component={PrivacyPolicy} />
 
         {/* Fallback */}
         <Route path="/404" component={NotFound} />
