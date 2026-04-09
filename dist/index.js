@@ -1,5 +1,273 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc2) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// drizzle/schema.ts
+var schema_exports = {};
+__export(schema_exports, {
+  auditLog: () => auditLog,
+  botConnections: () => botConnections,
+  botLeads: () => botLeads,
+  clients: () => clients,
+  facebookLeads: () => facebookLeads,
+  invoices: () => invoices,
+  leads: () => leads,
+  payments: () => payments,
+  projects: () => projects,
+  subscriptions: () => subscriptions,
+  tasks: () => tasks,
+  users: () => users
+});
+import { boolean, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+var users, leads, clients, projects, invoices, botConnections, tasks, botLeads, facebookLeads, payments, subscriptions, auditLog;
+var init_schema = __esm({
+  "drizzle/schema.ts"() {
+    "use strict";
+    users = mysqlTable("users", {
+      /**
+       * Surrogate primary key. Auto-incremented numeric value managed by the database.
+       * Use this for relations between tables.
+       */
+      id: int("id").autoincrement().primaryKey(),
+      /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
+      openId: varchar("openId", { length: 64 }).notNull().unique(),
+      name: text("name"),
+      email: varchar("email", { length: 320 }),
+      loginMethod: varchar("loginMethod", { length: 64 }),
+      role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+      lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
+    });
+    leads = mysqlTable("leads", {
+      id: int("id").autoincrement().primaryKey(),
+      name: varchar("name", { length: 255 }).notNull(),
+      email: varchar("email", { length: 320 }),
+      phone: varchar("phone", { length: 20 }),
+      businessName: varchar("businessName", { length: 255 }).notNull(),
+      businessType: varchar("businessType", { length: 100 }),
+      location: varchar("location", { length: 255 }),
+      status: mysqlEnum("status", ["prospect", "call_booked", "client", "not_interested", "on_hold"]).default("prospect").notNull(),
+      painPoint: text("painPoint"),
+      serviceInterest: varchar("serviceInterest", { length: 255 }),
+      callbackNumber: varchar("callbackNumber", { length: 20 }),
+      outreachDate: timestamp("outreachDate"),
+      lastFollowUp: timestamp("lastFollowUp"),
+      nextFollowUp: timestamp("nextFollowUp"),
+      notes: text("notes"),
+      source: varchar("source", { length: 50 }).default("apollo"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    clients = mysqlTable("clients", {
+      id: int("id").autoincrement().primaryKey(),
+      leadId: int("leadId"),
+      businessName: varchar("businessName", { length: 255 }).notNull(),
+      businessType: varchar("businessType", { length: 100 }),
+      contactName: varchar("contactName", { length: 255 }).notNull(),
+      contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
+      contactPhone: varchar("contactPhone", { length: 20 }).notNull(),
+      location: varchar("location", { length: 255 }),
+      monthlyRetainer: decimal("monthlyRetainer", { precision: 10, scale: 2 }).notNull(),
+      setupFee: decimal("setupFee", { precision: 10, scale: 2 }),
+      status: mysqlEnum("status", ["active", "paused", "cancelled", "trial"]).default("active").notNull(),
+      contractStartDate: timestamp("contractStartDate"),
+      contractEndDate: timestamp("contractEndDate"),
+      paymentMethod: varchar("paymentMethod", { length: 50 }),
+      paymentStatus: mysqlEnum("paymentStatus", ["current", "overdue", "failed", "pending"]).default("current"),
+      nextBillingDate: timestamp("nextBillingDate"),
+      notes: text("notes"),
+      /** Client portal access code — crypto-random, e.g. FALCON-MANGO-7291 */
+      accessCode: varchar("accessCode", { length: 50 }).unique(),
+      /** PayFast m_payment_id used in subscription forms to link ITNs back to client */
+      merchantPaymentId: varchar("merchantPaymentId", { length: 100 }).unique(),
+      // ── Portal auth ──────────────────────────────────────────────
+      passwordHash: varchar("passwordHash", { length: 255 }),
+      emailVerified: boolean("emailVerified").default(false).notNull(),
+      inviteToken: varchar("inviteToken", { length: 128 }).unique(),
+      inviteTokenExpiry: timestamp("inviteTokenExpiry"),
+      passwordResetToken: varchar("passwordResetToken", { length: 128 }).unique(),
+      passwordResetExpiry: timestamp("passwordResetExpiry"),
+      failedLoginAttempts: int("failedLoginAttempts").default(0).notNull(),
+      lockoutUntil: timestamp("lockoutUntil"),
+      // ── POPIA / GDPR consent ─────────────────────────────────────
+      consentGivenAt: timestamp("consentGivenAt"),
+      consentVersion: varchar("consentVersion", { length: 20 }),
+      // ── Security audit ───────────────────────────────────────────
+      lastLoginAt: timestamp("lastLoginAt"),
+      lastLoginIp: varchar("lastLoginIp", { length: 45 }),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    projects = mysqlTable("projects", {
+      id: int("id").autoincrement().primaryKey(),
+      clientId: int("clientId").notNull(),
+      projectName: varchar("projectName", { length: 255 }).notNull(),
+      botName: varchar("botName", { length: 255 }),
+      whatChimpBotId: varchar("whatChimpBotId", { length: 255 }),
+      whatsappNumber: varchar("whatsappNumber", { length: 20 }),
+      status: mysqlEnum("status", ["discovery", "setup", "training", "testing", "live", "maintenance", "paused"]).default("discovery").notNull(),
+      discoveryDate: timestamp("discoveryDate"),
+      setupStartDate: timestamp("setupStartDate"),
+      goLiveDate: timestamp("goLiveDate"),
+      completionDate: timestamp("completionDate"),
+      services: varchar("services", { length: 500 }),
+      botDescription: text("botDescription"),
+      notes: text("notes"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    invoices = mysqlTable("invoices", {
+      id: int("id").autoincrement().primaryKey(),
+      clientId: int("clientId").notNull(),
+      invoiceNumber: varchar("invoiceNumber", { length: 50 }).notNull().unique(),
+      invoiceType: mysqlEnum("invoiceType", ["setup", "retainer", "one_off"]).default("retainer").notNull(),
+      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      description: text("description"),
+      issueDate: timestamp("issueDate").defaultNow().notNull(),
+      dueDate: timestamp("dueDate"),
+      paidDate: timestamp("paidDate"),
+      status: mysqlEnum("status", ["draft", "sent", "paid", "overdue", "cancelled"]).default("draft").notNull(),
+      paymentMethod: varchar("paymentMethod", { length: 50 }),
+      payFastReference: varchar("payFastReference", { length: 255 }),
+      notes: text("notes"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    botConnections = mysqlTable("bot_connections", {
+      id: int("id").autoincrement().primaryKey(),
+      projectId: int("projectId").notNull(),
+      whatChimpBotId: varchar("whatChimpBotId", { length: 255 }).notNull(),
+      whatsappNumber: varchar("whatsappNumber", { length: 20 }).notNull(),
+      apiKey: varchar("apiKey", { length: 500 }),
+      status: mysqlEnum("status", ["connected", "disconnected", "error"]).default("connected"),
+      lastSyncDate: timestamp("lastSyncDate"),
+      totalConversations: int("totalConversations").default(0),
+      totalMessages: int("totalMessages").default(0),
+      averageResponseTime: int("averageResponseTime"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    tasks = mysqlTable("tasks", {
+      id: int("id").autoincrement().primaryKey(),
+      clientId: int("clientId"),
+      projectId: int("projectId"),
+      leadId: int("leadId"),
+      taskType: mysqlEnum("taskType", ["onboarding", "follow_up", "milestone", "reminder", "payment", "support"]).notNull(),
+      title: varchar("title", { length: 255 }).notNull(),
+      description: text("description"),
+      status: mysqlEnum("status", ["pending", "in_progress", "completed", "cancelled"]).default("pending").notNull(),
+      dueDate: timestamp("dueDate"),
+      completedDate: timestamp("completedDate"),
+      priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium"),
+      assignedTo: varchar("assignedTo", { length: 255 }),
+      notes: text("notes"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    botLeads = mysqlTable("bot_leads", {
+      id: int("id").autoincrement().primaryKey(),
+      name: varchar("name", { length: 255 }).notNull(),
+      businessName: varchar("businessName", { length: 255 }),
+      phone: varchar("phone", { length: 20 }),
+      email: varchar("email", { length: 320 }),
+      language: varchar("language", { length: 10 }).default("en"),
+      conversationSummary: text("conversationSummary"),
+      source: varchar("source", { length: 50 }).default("website_bot"),
+      status: mysqlEnum("status", ["new", "contacted", "qualified", "converted", "lost"]).default("new").notNull(),
+      notes: text("notes"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    facebookLeads = mysqlTable("facebook_leads", {
+      id: int("id").autoincrement().primaryKey(),
+      leadgenId: varchar("leadgenId", { length: 100 }).notNull().unique(),
+      formId: varchar("formId", { length: 100 }),
+      adId: varchar("adId", { length: 100 }),
+      adgroupId: varchar("adgroupId", { length: 100 }),
+      pageId: varchar("pageId", { length: 100 }),
+      campaignName: varchar("campaignName", { length: 255 }),
+      formName: varchar("formName", { length: 255 }),
+      adName: varchar("adName", { length: 255 }),
+      // Lead contact info (fetched from Graph API)
+      fullName: varchar("fullName", { length: 255 }),
+      email: varchar("email", { length: 320 }),
+      phone: varchar("phone", { length: 20 }),
+      city: varchar("city", { length: 255 }),
+      company: varchar("company", { length: 255 }),
+      jobTitle: varchar("jobTitle", { length: 255 }),
+      // All raw field data as JSON
+      rawFieldData: text("rawFieldData"),
+      // Processing status
+      status: mysqlEnum("status", ["new", "contacted", "qualified", "converted", "lost", "synced_to_crm"]).default("new").notNull(),
+      whatsappFollowUpSent: int("whatsappFollowUpSent").default(0),
+      crmLeadId: int("crmLeadId"),
+      notes: text("notes"),
+      fbCreatedTime: timestamp("fbCreatedTime"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    payments = mysqlTable("payments", {
+      id: int("id").autoincrement().primaryKey(),
+      /** PayFast's unique pf_payment_id — the dedup key */
+      payfastPaymentId: varchar("payfastPaymentId", { length: 100 }).notNull().unique(),
+      /** Optional back-reference to our internal client (via m_payment_id lookup) */
+      merchantPaymentId: varchar("merchantPaymentId", { length: 100 }),
+      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      itemName: varchar("itemName", { length: 255 }),
+      paymentStatus: mysqlEnum("paymentStatus", ["COMPLETE", "FAILED", "PENDING", "CANCELLED", "UNKNOWN"]).notNull(),
+      /** 1 if our MD5 check passed, 0 if it failed (stored for forensics) */
+      signatureValid: int("signatureValid").default(0),
+      /** Full raw ITN payload as JSON — enables replay if processing failed */
+      rawItn: text("rawItn").notNull(),
+      processedAt: timestamp("processedAt").defaultNow().notNull()
+    });
+    subscriptions = mysqlTable("subscriptions", {
+      id: int("id").autoincrement().primaryKey(),
+      clientId: int("clientId").notNull().unique(),
+      payfastToken: varchar("payfastToken", { length: 100 }),
+      payfastSubscriptionId: varchar("payfastSubscriptionId", { length: 100 }),
+      packageName: mysqlEnum("packageName", ["starter", "bundle", "chatbot", "social"]).notNull(),
+      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      status: mysqlEnum("status", ["active", "paused", "cancelled", "failed"]).default("active").notNull(),
+      failedCount: int("failedCount").default(0),
+      nextRunDate: timestamp("nextRunDate"),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    auditLog = mysqlTable("audit_log", {
+      id: int("id").autoincrement().primaryKey(),
+      eventType: varchar("eventType", { length: 64 }).notNull(),
+      clientId: int("clientId"),
+      ipAddress: varchar("ipAddress", { length: 45 }),
+      userAgent: varchar("userAgent", { length: 512 }),
+      metadata: text("metadata"),
+      // JSON string — never store passwords or tokens
+      createdAt: timestamp("createdAt").defaultNow().notNull()
+    });
+  }
+});
+
 // server/_core/index.ts
 import "dotenv/config";
+import helmet from "helmet";
 import express2 from "express";
 import { createServer } from "http";
 import net from "net";
@@ -8,215 +276,19 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
+var CLIENT_COOKIE_NAME = "manna_client_session";
 var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
+var THIRTY_DAYS_MS = 1e3 * 60 * 60 * 24 * 30;
 var AXIOS_TIMEOUT_MS = 3e4;
 var UNAUTHED_ERR_MSG = "Please login (10001)";
 var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
+var PRIVACY_POLICY_VERSION = "1.0";
 
 // server/db.ts
+init_schema();
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { desc } from "drizzle-orm";
-
-// drizzle/schema.ts
-import { decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
-var users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
-  id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
-  name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
-});
-var leads = mysqlTable("leads", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  email: varchar("email", { length: 320 }),
-  phone: varchar("phone", { length: 20 }),
-  businessName: varchar("businessName", { length: 255 }).notNull(),
-  businessType: varchar("businessType", { length: 100 }),
-  location: varchar("location", { length: 255 }),
-  status: mysqlEnum("status", ["prospect", "call_booked", "client", "not_interested", "on_hold"]).default("prospect").notNull(),
-  painPoint: text("painPoint"),
-  serviceInterest: varchar("serviceInterest", { length: 255 }),
-  callbackNumber: varchar("callbackNumber", { length: 20 }),
-  outreachDate: timestamp("outreachDate"),
-  lastFollowUp: timestamp("lastFollowUp"),
-  nextFollowUp: timestamp("nextFollowUp"),
-  notes: text("notes"),
-  source: varchar("source", { length: 50 }).default("apollo"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var clients = mysqlTable("clients", {
-  id: int("id").autoincrement().primaryKey(),
-  leadId: int("leadId"),
-  businessName: varchar("businessName", { length: 255 }).notNull(),
-  businessType: varchar("businessType", { length: 100 }),
-  contactName: varchar("contactName", { length: 255 }).notNull(),
-  contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
-  contactPhone: varchar("contactPhone", { length: 20 }).notNull(),
-  location: varchar("location", { length: 255 }),
-  monthlyRetainer: decimal("monthlyRetainer", { precision: 10, scale: 2 }).notNull(),
-  setupFee: decimal("setupFee", { precision: 10, scale: 2 }),
-  status: mysqlEnum("status", ["active", "paused", "cancelled", "trial"]).default("active").notNull(),
-  contractStartDate: timestamp("contractStartDate"),
-  contractEndDate: timestamp("contractEndDate"),
-  paymentMethod: varchar("paymentMethod", { length: 50 }),
-  paymentStatus: mysqlEnum("paymentStatus", ["current", "overdue", "failed", "pending"]).default("current"),
-  nextBillingDate: timestamp("nextBillingDate"),
-  notes: text("notes"),
-  /** Client portal access code — crypto-random, e.g. FALCON-MANGO-7291 */
-  accessCode: varchar("accessCode", { length: 50 }).unique(),
-  /** PayFast m_payment_id used in subscription forms to link ITNs back to client */
-  merchantPaymentId: varchar("merchantPaymentId", { length: 100 }).unique(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var projects = mysqlTable("projects", {
-  id: int("id").autoincrement().primaryKey(),
-  clientId: int("clientId").notNull(),
-  projectName: varchar("projectName", { length: 255 }).notNull(),
-  botName: varchar("botName", { length: 255 }),
-  whatChimpBotId: varchar("whatChimpBotId", { length: 255 }),
-  whatsappNumber: varchar("whatsappNumber", { length: 20 }),
-  status: mysqlEnum("status", ["discovery", "setup", "training", "testing", "live", "maintenance", "paused"]).default("discovery").notNull(),
-  discoveryDate: timestamp("discoveryDate"),
-  setupStartDate: timestamp("setupStartDate"),
-  goLiveDate: timestamp("goLiveDate"),
-  completionDate: timestamp("completionDate"),
-  services: varchar("services", { length: 500 }),
-  botDescription: text("botDescription"),
-  notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var invoices = mysqlTable("invoices", {
-  id: int("id").autoincrement().primaryKey(),
-  clientId: int("clientId").notNull(),
-  invoiceNumber: varchar("invoiceNumber", { length: 50 }).notNull().unique(),
-  invoiceType: mysqlEnum("invoiceType", ["setup", "retainer", "one_off"]).default("retainer").notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  description: text("description"),
-  issueDate: timestamp("issueDate").defaultNow().notNull(),
-  dueDate: timestamp("dueDate"),
-  paidDate: timestamp("paidDate"),
-  status: mysqlEnum("status", ["draft", "sent", "paid", "overdue", "cancelled"]).default("draft").notNull(),
-  paymentMethod: varchar("paymentMethod", { length: 50 }),
-  payFastReference: varchar("payFastReference", { length: 255 }),
-  notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var botConnections = mysqlTable("bot_connections", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("projectId").notNull(),
-  whatChimpBotId: varchar("whatChimpBotId", { length: 255 }).notNull(),
-  whatsappNumber: varchar("whatsappNumber", { length: 20 }).notNull(),
-  apiKey: varchar("apiKey", { length: 500 }),
-  status: mysqlEnum("status", ["connected", "disconnected", "error"]).default("connected"),
-  lastSyncDate: timestamp("lastSyncDate"),
-  totalConversations: int("totalConversations").default(0),
-  totalMessages: int("totalMessages").default(0),
-  averageResponseTime: int("averageResponseTime"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var tasks = mysqlTable("tasks", {
-  id: int("id").autoincrement().primaryKey(),
-  clientId: int("clientId"),
-  projectId: int("projectId"),
-  leadId: int("leadId"),
-  taskType: mysqlEnum("taskType", ["onboarding", "follow_up", "milestone", "reminder", "payment", "support"]).notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  description: text("description"),
-  status: mysqlEnum("status", ["pending", "in_progress", "completed", "cancelled"]).default("pending").notNull(),
-  dueDate: timestamp("dueDate"),
-  completedDate: timestamp("completedDate"),
-  priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium"),
-  assignedTo: varchar("assignedTo", { length: 255 }),
-  notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var botLeads = mysqlTable("bot_leads", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  businessName: varchar("businessName", { length: 255 }),
-  phone: varchar("phone", { length: 20 }),
-  email: varchar("email", { length: 320 }),
-  language: varchar("language", { length: 10 }).default("en"),
-  conversationSummary: text("conversationSummary"),
-  source: varchar("source", { length: 50 }).default("website_bot"),
-  status: mysqlEnum("status", ["new", "contacted", "qualified", "converted", "lost"]).default("new").notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var facebookLeads = mysqlTable("facebook_leads", {
-  id: int("id").autoincrement().primaryKey(),
-  leadgenId: varchar("leadgenId", { length: 100 }).notNull().unique(),
-  formId: varchar("formId", { length: 100 }),
-  adId: varchar("adId", { length: 100 }),
-  adgroupId: varchar("adgroupId", { length: 100 }),
-  pageId: varchar("pageId", { length: 100 }),
-  campaignName: varchar("campaignName", { length: 255 }),
-  formName: varchar("formName", { length: 255 }),
-  adName: varchar("adName", { length: 255 }),
-  // Lead contact info (fetched from Graph API)
-  fullName: varchar("fullName", { length: 255 }),
-  email: varchar("email", { length: 320 }),
-  phone: varchar("phone", { length: 20 }),
-  city: varchar("city", { length: 255 }),
-  company: varchar("company", { length: 255 }),
-  jobTitle: varchar("jobTitle", { length: 255 }),
-  // All raw field data as JSON
-  rawFieldData: text("rawFieldData"),
-  // Processing status
-  status: mysqlEnum("status", ["new", "contacted", "qualified", "converted", "lost", "synced_to_crm"]).default("new").notNull(),
-  whatsappFollowUpSent: int("whatsappFollowUpSent").default(0),
-  crmLeadId: int("crmLeadId"),
-  notes: text("notes"),
-  fbCreatedTime: timestamp("fbCreatedTime"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
-var payments = mysqlTable("payments", {
-  id: int("id").autoincrement().primaryKey(),
-  /** PayFast's unique pf_payment_id — the dedup key */
-  payfastPaymentId: varchar("payfastPaymentId", { length: 100 }).notNull().unique(),
-  /** Optional back-reference to our internal client (via m_payment_id lookup) */
-  merchantPaymentId: varchar("merchantPaymentId", { length: 100 }),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  itemName: varchar("itemName", { length: 255 }),
-  paymentStatus: mysqlEnum("paymentStatus", ["COMPLETE", "FAILED", "PENDING", "CANCELLED", "UNKNOWN"]).notNull(),
-  /** 1 if our MD5 check passed, 0 if it failed (stored for forensics) */
-  signatureValid: int("signatureValid").default(0),
-  /** Full raw ITN payload as JSON — enables replay if processing failed */
-  rawItn: text("rawItn").notNull(),
-  processedAt: timestamp("processedAt").defaultNow().notNull()
-});
-var subscriptions = mysqlTable("subscriptions", {
-  id: int("id").autoincrement().primaryKey(),
-  clientId: int("clientId").notNull().unique(),
-  payfastToken: varchar("payfastToken", { length: 100 }),
-  payfastSubscriptionId: varchar("payfastSubscriptionId", { length: 100 }),
-  packageName: mysqlEnum("packageName", ["starter", "bundle", "chatbot", "social"]).notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  status: mysqlEnum("status", ["active", "paused", "cancelled", "failed"]).default("active").notNull(),
-  failedCount: int("failedCount").default(0),
-  nextRunDate: timestamp("nextRunDate"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-});
 
 // server/_core/env.ts
 var ENV = {
@@ -226,6 +298,7 @@ var ENV = {
   // ── Admin credentials ───────────────────────────────────────
   adminEmail: process.env.ADMIN_EMAIL ?? "",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  siteUrl: process.env.SITE_URL ?? "https://mannadigitalhub.co.za",
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
@@ -836,8 +909,8 @@ function registerOAuthRoutes(app) {
 }
 
 // server/routers.ts
-import { TRPCError as TRPCError3 } from "@trpc/server";
-import { z as z7 } from "zod";
+import { TRPCError as TRPCError4 } from "@trpc/server";
+import { z as z8 } from "zod";
 
 // server/_core/systemRouter.ts
 import { z } from "zod";
@@ -945,6 +1018,15 @@ var requireUser = t.middleware(async (opts) => {
   });
 });
 var protectedProcedure = t.procedure.use(requireUser);
+var clientProcedure = t.procedure.use(
+  t.middleware(async (opts) => {
+    const { ctx, next } = opts;
+    if (!ctx.client) {
+      throw new TRPCError2({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    return next({ ctx: { ...ctx, client: ctx.client } });
+  })
+);
 var adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
@@ -1243,6 +1325,7 @@ var crmRouter = router({
 
 // server/routers/analytics.ts
 import { z as z3 } from "zod";
+init_schema();
 import { eq as eq2 } from "drizzle-orm";
 var analyticsRouter = router({
   // Dashboard metrics
@@ -1809,18 +1892,414 @@ var facebookLeadsRouter = router({
   })
 });
 
+// server/routers/clientAuth.ts
+import { TRPCError as TRPCError3 } from "@trpc/server";
+import { z as z7 } from "zod";
+import { eq as eq3 } from "drizzle-orm";
+
+// server/_core/clientAuth.ts
+import bcrypt from "bcrypt";
+import crypto2 from "node:crypto";
+import { SignJWT as SignJWT2, jwtVerify as jwtVerify2 } from "jose";
+import { parse as parseCookies } from "cookie";
+var BCRYPT_ROUNDS = 12;
+var MAX_LOGIN_ATTEMPTS = 5;
+var LOCKOUT_DURATION_MS = 30 * 60 * 1e3;
+var INVITE_TTL_MS = 48 * 60 * 60 * 1e3;
+var RESET_TTL_MS = 60 * 60 * 1e3;
+function validatePassword(password) {
+  if (password.length < 10) return { ok: false, message: "Minimum 10 characters" };
+  if (!/[A-Z]/.test(password)) return { ok: false, message: "Must include an uppercase letter" };
+  if (!/[a-z]/.test(password)) return { ok: false, message: "Must include a lowercase letter" };
+  if (!/\d/.test(password)) return { ok: false, message: "Must include a number" };
+  if (!/[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]/.test(password)) return { ok: false, message: "Must include a special character" };
+  return { ok: true };
+}
+var hashPassword = (password) => bcrypt.hash(password, BCRYPT_ROUNDS);
+var verifyPassword = (password, hash) => bcrypt.compare(password, hash);
+var generateToken = () => crypto2.randomBytes(32).toString("hex");
+function getSecret() {
+  return new TextEncoder().encode(ENV.cookieSecret || "fallback-dev-secret-change-in-prod");
+}
+async function createClientSession(payload) {
+  const expiresAt = Math.floor((Date.now() + THIRTY_DAYS_MS) / 1e3);
+  return new SignJWT2(payload).setProtectedHeader({ alg: "HS256", typ: "JWT" }).setExpirationTime(expiresAt).sign(getSecret());
+}
+async function verifyClientSession(token) {
+  try {
+    const { payload } = await jwtVerify2(token, getSecret(), { algorithms: ["HS256"] });
+    const { clientId, email, businessName } = payload;
+    if (typeof clientId !== "number" || typeof email !== "string" || typeof businessName !== "string") return null;
+    return { clientId, email, businessName };
+  } catch {
+    return null;
+  }
+}
+function getClientTokenFromRequest(req) {
+  const cookies = parseCookies(req.headers.cookie ?? "");
+  return cookies[CLIENT_COOKIE_NAME];
+}
+
+// server/_core/email.ts
+import nodemailer from "nodemailer";
+function getTransport() {
+  if (!ENV.smtpPass) return null;
+  return nodemailer.createTransport({
+    host: ENV.smtpHost,
+    port: ENV.smtpPort,
+    secure: ENV.smtpPort === 465,
+    auth: { user: ENV.smtpUser, pass: ENV.smtpPass }
+  });
+}
+async function send(to, subject, html) {
+  const transport = getTransport();
+  if (!transport) {
+    console.warn(`[Email] SMTP not configured \u2014 would have sent to ${to}: ${subject}`);
+    return;
+  }
+  await transport.sendMail({ from: `"Manna Digital Hub" <${ENV.smtpUser}>`, to, subject, html });
+}
+var baseStyle = `font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f172a;color:#e2e8f0;padding:32px;border-radius:12px`;
+var btnStyle = `display:inline-block;background:#10b981;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px`;
+async function sendClientInvite(email, name, inviteUrl) {
+  const html = `<div style="${baseStyle}">
+    <h2 style="color:#10b981">Welcome to Manna Digital Hub</h2>
+    <p>Hi ${name},</p>
+    <p>Your client portal is ready. Click below to set your password and access your dashboard.</p>
+    <a href="${inviteUrl}" style="${btnStyle}">Set Up My Account</a>
+    <p style="margin-top:24px;color:#94a3b8;font-size:13px">This link expires in 48 hours. If you did not expect this email, please ignore it.</p>
+    <hr style="border-color:#1e293b;margin:24px 0">
+    <p style="color:#64748b;font-size:12px">K2026183802 (SA) (PTY) LTD T/A Manna Digital Hub \u2014 POPIA compliant</p>
+  </div>`;
+  console.log(`[Email] Invite URL for ${email}: ${inviteUrl}`);
+  await send(email, "Set up your Manna Digital Hub portal", html);
+}
+async function sendPasswordReset(email, name, resetUrl) {
+  const html = `<div style="${baseStyle}">
+    <h2 style="color:#10b981">Reset Your Password</h2>
+    <p>Hi ${name},</p>
+    <p>We received a request to reset your password. Click below to choose a new one.</p>
+    <a href="${resetUrl}" style="${btnStyle}">Reset My Password</a>
+    <p style="margin-top:24px;color:#94a3b8;font-size:13px">This link expires in 1 hour. If you did not request a reset, you can safely ignore this email.</p>
+  </div>`;
+  console.log(`[Email] Reset URL for ${email}: ${resetUrl}`);
+  await send(email, "Reset your Manna Digital Hub password", html);
+}
+
+// server/routers/clientAuth.ts
+init_schema();
+function getIp(req) {
+  return req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+}
+async function writeAudit(clientId, eventType, req, meta) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(auditLog).values({
+    eventType,
+    clientId: clientId ?? void 0,
+    ipAddress: getIp(req),
+    userAgent: (req.headers["user-agent"] ?? "").slice(0, 512),
+    metadata: meta ? JSON.stringify(meta) : null
+  }).catch(() => {
+  });
+}
+async function findClientByEmail(email) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(clients).where(eq3(clients.contactEmail, email)).limit(1);
+  return rows[0] ?? null;
+}
+async function findClientByToken(field, token) {
+  const db = await getDb();
+  if (!db) return null;
+  const col = field === "inviteToken" ? clients.inviteToken : clients.passwordResetToken;
+  const rows = await db.select().from(clients).where(eq3(col, token)).limit(1);
+  return rows[0] ?? null;
+}
+var passwordSchema = z7.string().min(10).max(128).refine(
+  (p) => validatePassword(p).ok,
+  (p) => ({ message: validatePassword(p).message ?? "Password does not meet requirements" })
+);
+var clientAuthRouter = router({
+  /** Admin: generate & email an invite link for a client */
+  generateInvite: adminProcedure.input(z7.object({ clientId: z7.number().int().positive() })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const rows = await db.select().from(clients).where(eq3(clients.id, input.clientId)).limit(1);
+    const client = rows[0];
+    if (!client) throw new TRPCError3({ code: "NOT_FOUND", message: "Client not found" });
+    const token = generateToken();
+    const expiry = new Date(Date.now() + INVITE_TTL_MS);
+    await db.update(clients).set({ inviteToken: token, inviteTokenExpiry: expiry }).where(eq3(clients.id, input.clientId));
+    const inviteUrl = `${ENV.siteUrl}/client/setup?token=${token}`;
+    await sendClientInvite(client.contactEmail, client.contactName, inviteUrl);
+    await writeAudit(input.clientId, "invite_sent", ctx.req, { email: client.contactEmail });
+    return { inviteUrl };
+  }),
+  /** Public: validate invite token — called by setup page on load */
+  verifyInviteToken: publicProcedure.input(z7.object({ token: z7.string().length(64) })).query(async ({ input }) => {
+    const client = await findClientByToken("inviteToken", input.token);
+    if (!client || !client.inviteTokenExpiry || client.inviteTokenExpiry < /* @__PURE__ */ new Date()) {
+      throw new TRPCError3({ code: "BAD_REQUEST", message: "Invalid or expired invite link" });
+    }
+    return { email: client.contactEmail, businessName: client.businessName };
+  }),
+  /** Public: set password + consent — completes account setup */
+  setup: publicProcedure.input(z7.object({
+    token: z7.string().length(64),
+    password: passwordSchema,
+    consentAccepted: z7.literal(true, { errorMap: () => ({ message: "You must accept the Privacy Policy to continue" }) })
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const client = await findClientByToken("inviteToken", input.token);
+    if (!client || !client.inviteTokenExpiry || client.inviteTokenExpiry < /* @__PURE__ */ new Date()) {
+      throw new TRPCError3({ code: "BAD_REQUEST", message: "Invalid or expired invite link" });
+    }
+    const passwordHash = await hashPassword(input.password);
+    await db.update(clients).set({
+      passwordHash,
+      emailVerified: true,
+      inviteToken: null,
+      inviteTokenExpiry: null,
+      consentGivenAt: /* @__PURE__ */ new Date(),
+      consentVersion: PRIVACY_POLICY_VERSION,
+      failedLoginAttempts: 0,
+      lockoutUntil: null,
+      lastLoginAt: /* @__PURE__ */ new Date(),
+      lastLoginIp: getIp(ctx.req)
+    }).where(eq3(clients.id, client.id));
+    const sessionToken = await createClientSession({
+      clientId: client.id,
+      email: client.contactEmail,
+      businessName: client.businessName
+    });
+    const cookieOpts = getSessionCookieOptions(ctx.req);
+    ctx.res.cookie(CLIENT_COOKIE_NAME, sessionToken, { ...cookieOpts, maxAge: THIRTY_DAYS_MS });
+    await writeAudit(client.id, "account_setup", ctx.req);
+    return { success: true };
+  }),
+  /** Public: email + password login */
+  login: publicProcedure.input(z7.object({
+    email: z7.string().email().max(320),
+    password: z7.string().min(1).max(128)
+  })).mutation(async ({ input, ctx }) => {
+    const GENERIC_ERROR = "Invalid email or password";
+    const client = await findClientByEmail(input.email.toLowerCase());
+    if (!client || !client.passwordHash || !client.emailVerified) {
+      await bcryptDummy();
+      await writeAudit(null, "login_failed_unknown", ctx.req, { email: input.email });
+      throw new TRPCError3({ code: "UNAUTHORIZED", message: GENERIC_ERROR });
+    }
+    if (client.lockoutUntil && client.lockoutUntil > /* @__PURE__ */ new Date()) {
+      const minutesLeft = Math.ceil((client.lockoutUntil.getTime() - Date.now()) / 6e4);
+      await writeAudit(client.id, "login_blocked_lockout", ctx.req);
+      throw new TRPCError3({ code: "TOO_MANY_REQUESTS", message: `Account locked. Try again in ${minutesLeft} minutes.` });
+    }
+    const passwordOk = await verifyPassword(input.password, client.passwordHash);
+    const db = await getDb();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    if (!passwordOk) {
+      const attempts = (client.failedLoginAttempts ?? 0) + 1;
+      const shouldLock = attempts >= MAX_LOGIN_ATTEMPTS;
+      await db.update(clients).set({
+        failedLoginAttempts: attempts,
+        lockoutUntil: shouldLock ? new Date(Date.now() + LOCKOUT_DURATION_MS) : null
+      }).where(eq3(clients.id, client.id));
+      await writeAudit(client.id, "login_failed_password", ctx.req, { attempts });
+      const msg = shouldLock ? "Too many failed attempts. Account locked for 30 minutes." : GENERIC_ERROR;
+      throw new TRPCError3({ code: "UNAUTHORIZED", message: msg });
+    }
+    await db.update(clients).set({
+      failedLoginAttempts: 0,
+      lockoutUntil: null,
+      lastLoginAt: /* @__PURE__ */ new Date(),
+      lastLoginIp: getIp(ctx.req)
+    }).where(eq3(clients.id, client.id));
+    const sessionToken = await createClientSession({
+      clientId: client.id,
+      email: client.contactEmail,
+      businessName: client.businessName
+    });
+    const cookieOpts = getSessionCookieOptions(ctx.req);
+    ctx.res.cookie(CLIENT_COOKIE_NAME, sessionToken, { ...cookieOpts, maxAge: THIRTY_DAYS_MS });
+    await writeAudit(client.id, "login_success", ctx.req);
+    return { success: true };
+  }),
+  /** Protected: current client session */
+  me: clientProcedure.query(({ ctx }) => ({
+    id: ctx.client.id,
+    businessName: ctx.client.businessName,
+    contactName: ctx.client.contactName,
+    email: ctx.client.contactEmail,
+    status: ctx.client.status
+  })),
+  /** Protected: logout */
+  logout: clientProcedure.mutation(async ({ ctx }) => {
+    const cookieOpts = getSessionCookieOptions(ctx.req);
+    ctx.res.clearCookie(CLIENT_COOKIE_NAME, { ...cookieOpts, maxAge: -1 });
+    await writeAudit(ctx.client.id, "logout", ctx.req);
+    return { success: true };
+  }),
+  /** Public: request password reset email */
+  requestPasswordReset: publicProcedure.input(z7.object({ email: z7.string().email().max(320) })).mutation(async ({ input, ctx }) => {
+    const client = await findClientByEmail(input.email.toLowerCase());
+    if (client?.emailVerified) {
+      const db = await getDb();
+      if (db) {
+        const token = generateToken();
+        await db.update(clients).set({
+          passwordResetToken: token,
+          passwordResetExpiry: new Date(Date.now() + RESET_TTL_MS)
+        }).where(eq3(clients.id, client.id));
+        const resetUrl = `${ENV.siteUrl}/client/reset-password?token=${token}`;
+        await sendPasswordReset(client.contactEmail, client.contactName, resetUrl);
+        await writeAudit(client.id, "password_reset_requested", ctx.req);
+      }
+    }
+    return { success: true };
+  }),
+  /** Public: reset password with token */
+  resetPassword: publicProcedure.input(z7.object({
+    token: z7.string().length(64),
+    password: passwordSchema
+  })).mutation(async ({ input, ctx }) => {
+    const client = await findClientByToken("passwordResetToken", input.token);
+    if (!client || !client.passwordResetExpiry || client.passwordResetExpiry < /* @__PURE__ */ new Date()) {
+      throw new TRPCError3({ code: "BAD_REQUEST", message: "Invalid or expired reset link" });
+    }
+    const db = await getDb();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    await db.update(clients).set({
+      passwordHash: await hashPassword(input.password),
+      passwordResetToken: null,
+      passwordResetExpiry: null,
+      failedLoginAttempts: 0,
+      lockoutUntil: null
+    }).where(eq3(clients.id, client.id));
+    await writeAudit(client.id, "password_reset_completed", ctx.req);
+    return { success: true };
+  })
+});
+async function bcryptDummy() {
+  await verifyPassword("dummy", "$2b$12$invalidhashpaddingtomakethislookrealistic000000000000000");
+}
+
+// server/routers/clientPortal.ts
+import { eq as eq4 } from "drizzle-orm";
+init_schema();
+var clientPortalRouter = router({
+  /** My company info + contract status */
+  getMyInfo: clientProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+    const rows = await db.select({
+      businessName: clients.businessName,
+      businessType: clients.businessType,
+      contactName: clients.contactName,
+      status: clients.status,
+      paymentStatus: clients.paymentStatus,
+      monthlyRetainer: clients.monthlyRetainer,
+      contractStartDate: clients.contractStartDate,
+      nextBillingDate: clients.nextBillingDate
+    }).from(clients).where(eq4(clients.id, ctx.client.id)).limit(1);
+    return rows[0] ?? null;
+  }),
+  /** My active projects */
+  getMyProjects: clientProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    return db.select({
+      id: projects.id,
+      projectName: projects.projectName,
+      botName: projects.botName,
+      whatsappNumber: projects.whatsappNumber,
+      status: projects.status,
+      goLiveDate: projects.goLiveDate,
+      services: projects.services
+    }).from(projects).where(eq4(projects.clientId, ctx.client.id));
+  }),
+  /** My invoices */
+  getMyInvoices: clientProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    return db.select({
+      id: invoices.id,
+      invoiceNumber: invoices.invoiceNumber,
+      invoiceType: invoices.invoiceType,
+      amount: invoices.amount,
+      description: invoices.description,
+      issueDate: invoices.issueDate,
+      dueDate: invoices.dueDate,
+      paidDate: invoices.paidDate,
+      status: invoices.status
+    }).from(invoices).where(eq4(invoices.clientId, ctx.client.id)).orderBy(invoices.issueDate);
+  }),
+  /**
+   * POPIA/GDPR — Right of Access.
+   * Returns all personal data we hold about this client as a structured object.
+   */
+  exportMyData: clientProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return {};
+    const [clientData, myProjects, myInvoices, mySub] = await Promise.all([
+      db.select().from(clients).where(eq4(clients.id, ctx.client.id)).limit(1),
+      db.select().from(projects).where(eq4(projects.clientId, ctx.client.id)),
+      db.select().from(invoices).where(eq4(invoices.clientId, ctx.client.id)),
+      db.select().from(subscriptions).where(eq4(subscriptions.clientId, ctx.client.id)).limit(1)
+    ]);
+    const safe = clientData[0] ? {
+      businessName: clientData[0].businessName,
+      contactName: clientData[0].contactName,
+      contactEmail: clientData[0].contactEmail,
+      contactPhone: clientData[0].contactPhone,
+      location: clientData[0].location,
+      consentGivenAt: clientData[0].consentGivenAt,
+      consentVersion: clientData[0].consentVersion,
+      lastLoginAt: clientData[0].lastLoginAt,
+      createdAt: clientData[0].createdAt
+      // Omit: passwordHash, tokens, IP addresses (security)
+    } : {};
+    return {
+      exportDate: (/* @__PURE__ */ new Date()).toISOString(),
+      responsibleParty: "K2026183802 (SA) (PTY) LTD T/A Manna Digital Hub",
+      profile: safe,
+      projects: myProjects,
+      invoices: myInvoices,
+      subscription: mySub[0] ?? null
+    };
+  }),
+  /**
+   * POPIA/GDPR — Right to Erasure.
+   * Flags account for deletion review. Actual deletion is manual to prevent abuse.
+   */
+  requestDeletion: clientProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (db) {
+      await db.insert((init_schema(), __toCommonJS(schema_exports)).auditLog).values({
+        eventType: "deletion_requested",
+        clientId: ctx.client.id,
+        metadata: JSON.stringify({ email: ctx.client.contactEmail })
+      }).catch(() => {
+      });
+    }
+    console.warn(`[POPIA] Deletion requested by clientId=${ctx.client.id} email=${ctx.client.contactEmail}`);
+    return { success: true, message: "Your deletion request has been received. We will process it within 30 days as required by POPIA." };
+  })
+});
+
 // server/routers.ts
 var appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
-    login: publicProcedure.input(z7.object({ email: z7.string().email(), password: z7.string().min(1) })).mutation(async ({ input, ctx }) => {
+    login: publicProcedure.input(z8.object({ email: z8.string().email(), password: z8.string().min(1) })).mutation(async ({ input, ctx }) => {
       if (!ENV.adminEmail || !ENV.adminPassword) {
-        throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Admin credentials not configured" });
+        throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Admin credentials not configured" });
       }
       if (input.email !== ENV.adminEmail || input.password !== ENV.adminPassword) {
-        throw new TRPCError3({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        throw new TRPCError4({ code: "UNAUTHORIZED", message: "Invalid email or password" });
       }
       await upsertUser({
         openId: "admin",
@@ -1850,22 +2329,29 @@ var appRouter = router({
   analytics: analyticsRouter,
   botLeads: botLeadsRouter,
   aiChat: aiChatRouter,
-  facebookLeads: facebookLeadsRouter
+  facebookLeads: facebookLeadsRouter,
+  clientAuth: clientAuthRouter,
+  clientPortal: clientPortalRouter
 });
 
 // server/_core/context.ts
 async function createContext(opts) {
   let user = null;
+  let clientSession = null;
+  let client = null;
   try {
     user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
+  } catch {
     user = null;
   }
-  return {
-    req: opts.req,
-    res: opts.res,
-    user
-  };
+  const clientToken = getClientTokenFromRequest(opts.req);
+  if (clientToken) {
+    clientSession = await verifyClientSession(clientToken);
+    if (clientSession) {
+      client = await getClientById(clientSession.clientId).catch(() => null);
+    }
+  }
+  return { req: opts.req, res: opts.res, user, clientSession, client };
 }
 
 // server/_core/vite.ts
@@ -1926,7 +2412,7 @@ function serveStatic(app) {
 
 // server/whatsapp-webhook.ts
 import { Router } from "express";
-import crypto2 from "crypto";
+import crypto3 from "crypto";
 var router2 = Router();
 var waConversations = /* @__PURE__ */ new Map();
 setInterval(() => {
@@ -1949,9 +2435,9 @@ function verifyMetaSignature(rawBody, signature, secret) {
   if (!secret || !signature) return false;
   const [algo, hash] = signature.split("=");
   if (algo !== "sha256" || !hash) return false;
-  const expected = crypto2.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expected = crypto3.createHmac("sha256", secret).update(rawBody).digest("hex");
   try {
-    return crypto2.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
+    return crypto3.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
   } catch {
     return false;
   }
@@ -2058,15 +2544,15 @@ var whatsapp_webhook_default = router2;
 
 // server/facebook-webhook.ts
 import { Router as Router2 } from "express";
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 var router3 = Router2();
 function verifyMetaSignature2(rawBody, signature, appSecret) {
   if (!appSecret || !signature) return false;
   const [algo, hash] = signature.split("=");
   if (algo !== "sha256" || !hash) return false;
-  const expected = crypto3.createHmac("sha256", appSecret).update(rawBody).digest("hex");
+  const expected = crypto4.createHmac("sha256", appSecret).update(rawBody).digest("hex");
   try {
-    return crypto3.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
+    return crypto4.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
   } catch {
     return false;
   }
@@ -2243,7 +2729,7 @@ var facebook_webhook_default = router3;
 
 // server/payfast-webhook.ts
 import { Router as Router3 } from "express";
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 var router4 = Router3();
 var PAYFAST_IPS = /* @__PURE__ */ new Set([
   "41.74.179.194",
@@ -2268,7 +2754,7 @@ function buildSignature(params, passphrase) {
   const sortedKeys = Object.keys(params).sort();
   const queryString = sortedKeys.filter((k) => k !== "signature" && params[k] !== "").map((k) => `${k}=${encodeURIComponent(params[k]).replace(/%20/g, "+")}`).join("&");
   const withPassphrase = passphrase ? `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}` : queryString;
-  return crypto4.createHash("md5").update(withPassphrase).digest("hex");
+  return crypto5.createHash("md5").update(withPassphrase).digest("hex");
 }
 router4.post("/notify", async (req, res) => {
   res.status(200).send("OK");
@@ -2289,7 +2775,7 @@ async function processItn(req) {
   const expectedSig = buildSignature(params, ENV.payfastPassphrase);
   let sigValid = false;
   try {
-    sigValid = crypto4.timingSafeEqual(
+    sigValid = crypto5.timingSafeEqual(
       Buffer.from(expectedSig, "hex"),
       Buffer.from(receivedSig, "hex")
     );
@@ -2415,9 +2901,33 @@ var webhookRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
+var clientAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1e3,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts \u2014 please wait 15 minutes." },
+  skip: () => process.env.NODE_ENV !== "production"
+});
 async function startServer() {
   const app = express2();
   const server = createServer(app);
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'self'", "https://www.payfast.co.za"]
+      }
+    },
+    hsts: { maxAge: 31536e3, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" }
+  }));
   app.use(
     express2.json({
       limit: "50mb",
@@ -2454,6 +2964,9 @@ async function startServer() {
   app.get("/api/payfast/cancel", (_req, res) => {
     res.redirect("/pricing?cancelled=true");
   });
+  app.use("/api/trpc/clientAuth.login", clientAuthLimiter);
+  app.use("/api/trpc/clientAuth.setup", clientAuthLimiter);
+  app.use("/api/trpc/clientAuth.resetPassword", clientAuthLimiter);
   app.use(
     "/api/trpc/aiChat",
     chatRateLimiter,

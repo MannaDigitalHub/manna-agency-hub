@@ -1,4 +1,5 @@
 import "dotenv/config";
+import helmet from "helmet";
 import express, { Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import net from "net";
@@ -56,10 +57,38 @@ const webhookRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Client auth: 5 attempts per 15 min — brute-force protection
+const clientAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts — please wait 15 minutes." },
+  skip: () => process.env.NODE_ENV !== "production",
+});
+
 // ─── Server startup ───────────────────────────────────────────
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // ── Security headers ─────────────────────────────────────────
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'self'", "https://www.payfast.co.za"],
+      },
+    },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  }));
 
   // ── Body parsing: capture rawBody for HMAC webhook verification ──
   // Must be configured before any routes that need req.rawBody.
@@ -110,6 +139,11 @@ async function startServer() {
   app.get("/api/payfast/cancel", (_req: Request, res: Response) => {
     res.redirect("/pricing?cancelled=true");
   });
+
+  // ── Client auth — tighter rate limit ────────────────────────
+  app.use("/api/trpc/clientAuth.login", clientAuthLimiter);
+  app.use("/api/trpc/clientAuth.setup", clientAuthLimiter);
+  app.use("/api/trpc/clientAuth.resetPassword", clientAuthLimiter);
 
   // ── tRPC API with rate limiting ──────────────────────────────
   // Apply tighter limit specifically to aiChat procedures

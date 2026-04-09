@@ -23,6 +23,7 @@ export const ENV = {
   // ── Admin credentials ───────────────────────────────────────
   adminEmail: process.env.ADMIN_EMAIL ?? "",
   adminPassword: process.env.ADMIN_PASSWORD ?? "",
+  siteUrl: process.env.SITE_URL ?? "https://mannadigitalhub.co.za",
   databaseUrl: process.env.DATABASE_URL ?? "",
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",

@@ -1,4 +1,4 @@
-import { decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, decimal, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -78,6 +78,21 @@ export const clients = mysqlTable("clients", {
   accessCode: varchar("accessCode", { length: 50 }).unique(),
   /** PayFast m_payment_id used in subscription forms to link ITNs back to client */
   merchantPaymentId: varchar("merchantPaymentId", { length: 100 }).unique(),
+  // ── Portal auth ──────────────────────────────────────────────
+  passwordHash: varchar("passwordHash", { length: 255 }),
+  emailVerified: boolean("emailVerified").default(false).notNull(),
+  inviteToken: varchar("inviteToken", { length: 128 }).unique(),
+  inviteTokenExpiry: timestamp("inviteTokenExpiry"),
+  passwordResetToken: varchar("passwordResetToken", { length: 128 }).unique(),
+  passwordResetExpiry: timestamp("passwordResetExpiry"),
+  failedLoginAttempts: int("failedLoginAttempts").default(0).notNull(),
+  lockoutUntil: timestamp("lockoutUntil"),
+  // ── POPIA / GDPR consent ─────────────────────────────────────
+  consentGivenAt: timestamp("consentGivenAt"),
+  consentVersion: varchar("consentVersion", { length: 20 }),
+  // ── Security audit ───────────────────────────────────────────
+  lastLoginAt: timestamp("lastLoginAt"),
+  lastLoginIp: varchar("lastLoginIp", { length: 45 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -277,3 +292,19 @@ export const subscriptions = mysqlTable("subscriptions", {
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+// ============================================================
+// AUDIT_LOG — POPIA/GDPR immutable security event trail
+// ============================================================
+export const auditLog = mysqlTable("audit_log", {
+  id: int("id").autoincrement().primaryKey(),
+  eventType: varchar("eventType", { length: 64 }).notNull(),
+  clientId: int("clientId"),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: varchar("userAgent", { length: 512 }),
+  metadata: text("metadata"), // JSON string — never store passwords or tokens
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AuditLog = typeof auditLog.$inferSelect;
+export type InsertAuditLog = typeof auditLog.$inferInsert;
