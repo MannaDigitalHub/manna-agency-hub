@@ -48,6 +48,16 @@ function Router() {
         <Route path="/client/reset-password" component={ClientResetPassword} />
         <Route path="/client/portal" component={ClientPortal} />
         <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/payment/success" component={() => (
+          <div className="min-h-screen bg-[oklch(0.08_0.02_260)] flex items-center justify-center text-center p-8">
+            <div>
+              <div className="text-5xl mb-4">✅</div>
+              <h1 className="text-3xl font-bold text-white mb-2">Payment Successful!</h1>
+              <p className="text-slate-400 mb-6">Welcome to Manna Digital Hub. We'll be in touch within 24 hours to get you set up.</p>
+              <a href="/" className="text-emerald-400 hover:underline">← Back to home</a>
+            </div>
+          </div>
+        )} />
 
         {/* Fallback */}
         <Route path="/404" component={NotFound} />

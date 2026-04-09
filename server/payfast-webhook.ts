@@ -36,8 +36,8 @@ const PAYFAST_IPS = new Set([
 // ─── Plan amount map (ITN item_name → expected gross amount in ZAR) ──────────
 const PLAN_AMOUNTS: Record<string, number> = {
   'WhatsApp Starter': 800,
-  'AI Complete Bundle': 2500,
-  'AI Chatbot Only': 1200,
+  'AI Complete': 2500,
+  'Chatbot Only': 600,
   'Social Media Manager': 1500,
 };
 

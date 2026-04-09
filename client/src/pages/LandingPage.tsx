@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 import {
   MessageCircle, Bot, Zap, TrendingUp, Clock, Shield, ChevronRight,
   Phone, Mail, MapPin, ArrowRight, CheckCircle2, Star, Menu, X,
@@ -516,8 +517,12 @@ function StatsSection() {
 
 // ─── Pricing Section ──────────────────────────────────────────
 function PricingSection() {
+  const [loading, setLoading] = useState<string | null>(null);
+  const createForm = trpc.payment.createSubscriptionForm.useMutation();
+
   const plans = [
     {
+      key: "starter" as const,
       name: "WhatsApp Starter",
       desc: "Perfect for businesses that live on WhatsApp and want to automate lead response.",
       setup: "R2,500",
@@ -529,9 +534,9 @@ function PricingSection() {
         "Business hours routing",
         "Monthly performance report",
       ],
-      cta: "Hi%2C%20I%27m%20interested%20in%20the%20WhatsApp%20Starter%20package",
     },
     {
+      key: "complete" as const,
       name: "AI Complete",
       desc: "WhatsApp + website chatbot + lead follow-up. Full automation from first contact to close.",
       setup: "R8,000",
@@ -545,9 +550,9 @@ function PricingSection() {
         "CRM connection & lead tracking",
         "Priority support & optimisation",
       ],
-      cta: "Hi%2C%20I%27m%20interested%20in%20the%20AI%20Complete%20package",
     },
     {
+      key: "chatbot" as const,
       name: "Chatbot Only",
       desc: "Already using WhatsApp? Add an AI chatbot to your website to capture more leads.",
       setup: "R3,000",
@@ -559,9 +564,29 @@ function PricingSection() {
         "Custom branding & responses",
         "Monthly review & updates",
       ],
-      cta: "Hi%2C%20I%27m%20interested%20in%20the%20Chatbot%20Only%20package",
     },
   ];
+
+  async function handleSubscribe(plan: "starter" | "complete" | "chatbot") {
+    setLoading(plan);
+    try {
+      const { action, fields } = await createForm.mutateAsync({ plan });
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = action;
+      Object.entries(fields).forEach(([name, value]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      form.submit();
+    } catch {
+      setLoading(null);
+    }
+  }
 
   return (
     <section id="pricing" className="relative py-24 bg-[oklch(0.12_0.015_260)]">
@@ -606,11 +631,13 @@ function PricingSection() {
                   ))}
                 </ul>
 
-                <a href={`https://wa.me/27734061526?text=${p.cta}`} target="_blank" rel="noopener noreferrer">
-                  <Button className={`w-full ${p.popular ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}>
-                    Get Started <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </a>
+                <Button
+                  onClick={() => handleSubscribe(p.key)}
+                  disabled={loading === p.key}
+                  className={`w-full ${p.popular ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg" : "bg-white/5 text-white hover:bg-white/10 border border-white/10"}`}
+                >
+                  {loading === p.key ? "Redirecting…" : <>Subscribe {p.monthly}/mo <ArrowRight className="w-4 h-4 ml-2" /></>}
+                </Button>
               </CardContent>
             </Card>
           ))}

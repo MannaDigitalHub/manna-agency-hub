@@ -3,20 +3,22 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 import {
   Users, TrendingUp, DollarSign, Bot, ArrowUpRight,
-  Plus, FileText, BarChart3, MessageCircle
+  Plus, FileText, MessageCircle
 } from "lucide-react";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { data: metrics } = trpc.analytics.dashboardMetrics.useQuery();
 
   const stats = [
-    { icon: Users, label: "Active Clients", value: "0", change: "+0%", color: "from-blue-500/20 to-cyan-500/10", iconColor: "text-blue-400" },
-    { icon: TrendingUp, label: "Monthly Revenue", value: "R0", change: "MRR", color: "from-emerald-500/20 to-green-500/10", iconColor: "text-emerald-400" },
-    { icon: DollarSign, label: "Conversion Rate", value: "0%", change: "Lead to client", color: "from-amber-500/20 to-orange-500/10", iconColor: "text-amber-400" },
-    { icon: Bot, label: "Live Projects", value: "0", change: "Active bots", color: "from-purple-500/20 to-pink-500/10", iconColor: "text-purple-400" },
+    { icon: Users, label: "Active Clients", value: String(metrics?.activeClients ?? 0), change: "Total active", color: "from-blue-500/20 to-cyan-500/10", iconColor: "text-blue-400" },
+    { icon: TrendingUp, label: "Monthly Revenue", value: `R${(metrics?.mrr ?? 0).toLocaleString()}`, change: "MRR", color: "from-emerald-500/20 to-green-500/10", iconColor: "text-emerald-400" },
+    { icon: DollarSign, label: "Conversion Rate", value: `${metrics?.conversionRate ?? 0}%`, change: "Lead to client", color: "from-amber-500/20 to-orange-500/10", iconColor: "text-amber-400" },
+    { icon: Bot, label: "Live Projects", value: String(metrics?.liveProjects ?? 0), change: "Active bots", color: "from-purple-500/20 to-pink-500/10", iconColor: "text-purple-400" },
   ];
 
   const quickActions = [

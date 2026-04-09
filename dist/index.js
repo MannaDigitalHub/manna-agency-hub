@@ -310,8 +310,11 @@ var ENV = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   // ── PayFast ─────────────────────────────────────────────────
   payfastMerchantId: process.env.PAYFAST_MERCHANT_ID ?? "34228175",
+  payfastMerchantKey: process.env.PAYFAST_MERCHANT_KEY ?? "",
   payfastPassphrase: process.env.PAYFAST_PASSPHRASE ?? "",
   payfastSandbox: process.env.PAYFAST_SANDBOX === "true",
+  // ── Vapi.ai (Voice AI) ───────────────────────────────────────
+  vapiApiKey: process.env.VAPI_API_KEY ?? "",
   // ── Meta (WhatsApp + Facebook) ──────────────────────────────
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN ?? "",
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
@@ -910,7 +913,7 @@ function registerOAuthRoutes(app) {
 
 // server/routers.ts
 import { TRPCError as TRPCError4 } from "@trpc/server";
-import { z as z8 } from "zod";
+import { z as z9 } from "zod";
 
 // server/_core/systemRouter.ts
 import { z } from "zod";
@@ -2288,13 +2291,56 @@ var clientPortalRouter = router({
   })
 });
 
+// server/routers/payment.ts
+import crypto3 from "crypto";
+import { nanoid } from "nanoid";
+import { z as z8 } from "zod";
+var PLANS = {
+  starter: { name: "WhatsApp Starter", amount: 800 },
+  complete: { name: "AI Complete", amount: 2500 },
+  chatbot: { name: "Chatbot Only", amount: 600 }
+};
+function buildSignature(params, passphrase) {
+  const sortedKeys = Object.keys(params).sort();
+  const queryString = sortedKeys.filter((k) => k !== "signature" && params[k] !== "").map((k) => `${k}=${encodeURIComponent(params[k]).replace(/%20/g, "+")}`).join("&");
+  const withPassphrase = passphrase ? `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}` : queryString;
+  return crypto3.createHash("md5").update(withPassphrase).digest("hex");
+}
+var paymentRouter = router({
+  createSubscriptionForm: publicProcedure.input(z8.object({ plan: z8.enum(["starter", "complete", "chatbot"]) })).mutation(({ input }) => {
+    const plan = PLANS[input.plan];
+    const isSandbox = ENV.payfastSandbox;
+    const action = isSandbox ? "https://sandbox.payfast.co.za/eng/process" : "https://www.payfast.co.za/eng/process";
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const mPaymentId = `manna-${input.plan}-${nanoid(8)}`;
+    const amountStr = plan.amount.toFixed(2);
+    const fields = {
+      merchant_id: ENV.payfastMerchantId,
+      merchant_key: ENV.payfastMerchantKey,
+      return_url: `${ENV.siteUrl}/payment/success`,
+      cancel_url: `${ENV.siteUrl}/#pricing`,
+      notify_url: `${ENV.siteUrl}/api/payfast/notify`,
+      m_payment_id: mPaymentId,
+      amount: amountStr,
+      item_name: plan.name,
+      subscription_type: "1",
+      billing_date: today,
+      recurring_amount: amountStr,
+      frequency: "3",
+      cycles: "0"
+    };
+    fields.signature = buildSignature(fields, ENV.payfastPassphrase);
+    return { action, fields };
+  })
+});
+
 // server/routers.ts
 var appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
-    login: publicProcedure.input(z8.object({ email: z8.string().email(), password: z8.string().min(1) })).mutation(async ({ input, ctx }) => {
+    login: publicProcedure.input(z9.object({ email: z9.string().email(), password: z9.string().min(1) })).mutation(async ({ input, ctx }) => {
       if (!ENV.adminEmail || !ENV.adminPassword) {
         throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Admin credentials not configured" });
       }
@@ -2331,7 +2377,8 @@ var appRouter = router({
   aiChat: aiChatRouter,
   facebookLeads: facebookLeadsRouter,
   clientAuth: clientAuthRouter,
-  clientPortal: clientPortalRouter
+  clientPortal: clientPortalRouter,
+  payment: paymentRouter
 });
 
 // server/_core/context.ts
@@ -2361,7 +2408,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 var _dirname = path.dirname(fileURLToPath(import.meta.url));
 async function setupVite(app, server) {
-  const [{ createServer: createViteServer }, { nanoid }] = await Promise.all([
+  const [{ createServer: createViteServer }, { nanoid: nanoid2 }] = await Promise.all([
     import("vite"),
     import("nanoid")
   ]);
@@ -2387,7 +2434,7 @@ async function setupVite(app, server) {
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`
+        `src="/src/main.tsx?v=${nanoid2()}"`
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -2412,7 +2459,7 @@ function serveStatic(app) {
 
 // server/whatsapp-webhook.ts
 import { Router } from "express";
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 var router2 = Router();
 var waConversations = /* @__PURE__ */ new Map();
 setInterval(() => {
@@ -2435,9 +2482,9 @@ function verifyMetaSignature(rawBody, signature, secret) {
   if (!secret || !signature) return false;
   const [algo, hash] = signature.split("=");
   if (algo !== "sha256" || !hash) return false;
-  const expected = crypto3.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expected = crypto4.createHmac("sha256", secret).update(rawBody).digest("hex");
   try {
-    return crypto3.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
+    return crypto4.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
   } catch {
     return false;
   }
@@ -2544,15 +2591,15 @@ var whatsapp_webhook_default = router2;
 
 // server/facebook-webhook.ts
 import { Router as Router2 } from "express";
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 var router3 = Router2();
 function verifyMetaSignature2(rawBody, signature, appSecret) {
   if (!appSecret || !signature) return false;
   const [algo, hash] = signature.split("=");
   if (algo !== "sha256" || !hash) return false;
-  const expected = crypto4.createHmac("sha256", appSecret).update(rawBody).digest("hex");
+  const expected = crypto5.createHmac("sha256", appSecret).update(rawBody).digest("hex");
   try {
-    return crypto4.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
+    return crypto5.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
   } catch {
     return false;
   }
@@ -2729,7 +2776,7 @@ var facebook_webhook_default = router3;
 
 // server/payfast-webhook.ts
 import { Router as Router3 } from "express";
-import crypto5 from "crypto";
+import crypto6 from "crypto";
 var router4 = Router3();
 var PAYFAST_IPS = /* @__PURE__ */ new Set([
   "41.74.179.194",
@@ -2746,15 +2793,15 @@ var PAYFAST_IPS = /* @__PURE__ */ new Set([
 ]);
 var PLAN_AMOUNTS = {
   "WhatsApp Starter": 800,
-  "AI Complete Bundle": 2500,
-  "AI Chatbot Only": 1200,
+  "AI Complete": 2500,
+  "Chatbot Only": 600,
   "Social Media Manager": 1500
 };
-function buildSignature(params, passphrase) {
+function buildSignature2(params, passphrase) {
   const sortedKeys = Object.keys(params).sort();
   const queryString = sortedKeys.filter((k) => k !== "signature" && params[k] !== "").map((k) => `${k}=${encodeURIComponent(params[k]).replace(/%20/g, "+")}`).join("&");
   const withPassphrase = passphrase ? `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}` : queryString;
-  return crypto5.createHash("md5").update(withPassphrase).digest("hex");
+  return crypto6.createHash("md5").update(withPassphrase).digest("hex");
 }
 router4.post("/notify", async (req, res) => {
   res.status(200).send("OK");
@@ -2772,10 +2819,10 @@ async function processItn(req) {
     return;
   }
   const receivedSig = params.signature ?? "";
-  const expectedSig = buildSignature(params, ENV.payfastPassphrase);
+  const expectedSig = buildSignature2(params, ENV.payfastPassphrase);
   let sigValid = false;
   try {
-    sigValid = crypto5.timingSafeEqual(
+    sigValid = crypto6.timingSafeEqual(
       Buffer.from(expectedSig, "hex"),
       Buffer.from(receivedSig, "hex")
     );
@@ -2863,6 +2910,75 @@ Payment ID: ${payfastPaymentId}`
   }
 }
 var payfast_webhook_default = router4;
+
+// server/vapi-webhook.ts
+import { Router as Router4 } from "express";
+var router5 = Router4();
+router5.post("/webhook", async (req, res) => {
+  const secret = process.env.VAPI_WEBHOOK_SECRET;
+  if (secret) {
+    const received = req.headers["x-vapi-secret"];
+    if (received !== secret) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+  }
+  res.status(200).send("OK");
+  try {
+    await handleVapiEvent(req.body);
+  } catch (err) {
+    console.error("[Vapi] Webhook error:", err);
+  }
+});
+async function handleVapiEvent(payload) {
+  const { type, call } = payload;
+  const callId = call?.id ?? "unknown";
+  const callerNumber = call?.customer?.number ?? "unknown";
+  const callerName = call?.customer?.name ?? "";
+  switch (type) {
+    case "call-started":
+      console.log(`[Vapi] \u{1F4DE} Call started | id: ${callId} | from: ${callerNumber}`);
+      break;
+    case "call-ended": {
+      const duration = call?.durationSeconds ?? 0;
+      const reason = call?.endedReason ?? "unknown";
+      console.log(`[Vapi] \u{1F4F5} Call ended | id: ${callId} | duration: ${duration}s | reason: ${reason}`);
+      await notifyOwner({
+        title: `\u{1F4DE} Voice Call Ended \u2014 ${callerNumber}`,
+        content: `Duration: ${duration}s
+Reason: ${reason}
+` + (callerName ? `Name: ${callerName}
+` : "") + (payload.summary ? `
+Summary:
+${payload.summary}` : "")
+      });
+      if (callerNumber !== "unknown") {
+        try {
+          const leadData = {
+            name: callerName || `Caller ${callerNumber}`,
+            phone: callerNumber,
+            email: "",
+            business: ""
+          };
+          const summary = payload.summary ?? `Voice call \u2014 ${duration}s`;
+          await saveLeadToDb(leadData, summary, "voice_call");
+          console.log(`[Vapi] Lead saved for ${callerNumber}`);
+        } catch (err) {
+          console.error("[Vapi] Failed to save lead:", err);
+        }
+      }
+      break;
+    }
+    case "transcript":
+      if (payload.message) {
+        console.log(`[Vapi] ${payload.message.role}: ${payload.message.content.slice(0, 100)}`);
+      }
+      break;
+    default:
+      console.log(`[Vapi] Unhandled event type: ${type}`);
+  }
+}
+var vapi_webhook_default = router5;
 
 // server/_core/index.ts
 function isPortAvailable(port) {
@@ -2958,6 +3074,7 @@ async function startServer() {
   app.use("/api/whatsapp", webhookRateLimiter, whatsapp_webhook_default);
   app.use("/api/facebook", webhookRateLimiter, facebook_webhook_default);
   app.use("/api/payfast", webhookRateLimiter, payfast_webhook_default);
+  app.use("/api/vapi", webhookRateLimiter, vapi_webhook_default);
   app.get("/api/payfast/return", (_req, res) => {
     res.redirect("/thank-you");
   });

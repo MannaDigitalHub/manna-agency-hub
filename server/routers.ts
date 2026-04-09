@@ -14,6 +14,7 @@ import { aiChatRouter } from "./routers/aiChat";
 import { facebookLeadsRouter } from "./routers/facebookLeads";
 import { clientAuthRouter } from "./routers/clientAuth";
 import { clientPortalRouter } from "./routers/clientPortal";
+import { paymentRouter } from "./routers/payment";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -61,6 +62,7 @@ export const appRouter = router({
   facebookLeads: facebookLeadsRouter,
   clientAuth: clientAuthRouter,
   clientPortal: clientPortalRouter,
+  payment: paymentRouter,
 });
 
 export type AppRouter = typeof appRouter;

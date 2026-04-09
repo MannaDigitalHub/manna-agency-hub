@@ -37,8 +37,12 @@ export const ENV = {
 
   // ── PayFast ─────────────────────────────────────────────────
   payfastMerchantId: process.env.PAYFAST_MERCHANT_ID ?? "34228175",
+  payfastMerchantKey: process.env.PAYFAST_MERCHANT_KEY ?? "",
   payfastPassphrase: process.env.PAYFAST_PASSPHRASE ?? "",
   payfastSandbox: process.env.PAYFAST_SANDBOX === "true",
+
+  // ── Vapi.ai (Voice AI) ───────────────────────────────────────
+  vapiApiKey: process.env.VAPI_API_KEY ?? "",
 
   // ── Meta (WhatsApp + Facebook) ──────────────────────────────
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN ?? "",

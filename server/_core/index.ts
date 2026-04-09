@@ -12,6 +12,7 @@ import { serveStatic, setupVite } from "./vite";
 import whatsappWebhookRouter from "../whatsapp-webhook";
 import facebookWebhookRouter from "../facebook-webhook";
 import payfastWebhookRouter from "../payfast-webhook";
+import vapiWebhookRouter from "../vapi-webhook";
 
 // ─── Port helpers ─────────────────────────────────────────────
 function isPortAvailable(port: number): Promise<boolean> {
@@ -131,6 +132,7 @@ async function startServer() {
   // PayFast ITN uses URL-encoded body — must not have JSON middleware applied.
   // express.urlencoded is already registered globally above, so this works.
   app.use("/api/payfast", webhookRateLimiter, payfastWebhookRouter);
+  app.use("/api/vapi", webhookRateLimiter, vapiWebhookRouter);
 
   // PayFast return/cancel redirects
   app.get("/api/payfast/return", (_req: Request, res: Response) => {
