@@ -5,11 +5,12 @@ _Last updated: 2026-04-10 | Health: 10/10 | Branch: claude/design-manna-hub-syst
 Manna Digital Hub — AI automation agency for South African businesses. React + Express + tRPC + Drizzle ORM + Anthropic Claude (MannaBot). Deployed on Truehost shared hosting (lon110.truehost.cloud), SSH port 1624.
 
 ## Where We Left Off
-Site is **LIVE**. PM2 online, node_modules installed, all env vars set. Last action: npm install succeeded, PM2 restarted online (17.1mb). Admin credentials added to server .env.
+Full UI overhaul committed and pushed. New build is in `dist/` and ready to deploy.
 
-**Next step**: Verify site loads at https://mannadigitalhub.co.za and test admin login at /admin
+**Next step**: SSH → `git pull` + `pm2 restart` to go live with new UI. Then verify at https://mannadigitalhub.co.za
 
 ## Completed ✓
+- **UI overhaul**: lime brand colors, 5 service cards, 5 pricing plans, admin login link
 - PayFast subscription form (server-side signed, tRPC mutation, landing page wired)
 - Admin dashboard wired to live analytics (real DB data)
 - Vapi voice webhook built and registered
@@ -20,7 +21,8 @@ Site is **LIVE**. PM2 online, node_modules installed, all env vars set. Last act
 - Truehost DNS/SSL fixed, PM2 online, node_modules installed
 
 ## Active Work 🔄
-- [ ] Verify site loads at https://mannadigitalhub.co.za
+- [ ] SSH → `git pull` + `pm2 restart` to deploy the UI overhaul
+- [ ] Verify new site at https://mannadigitalhub.co.za (lime, 5 services, admin link visible)
 - [ ] Test admin login: support@mannadigitalhub.co.za / admin2026!
 - [ ] WhatsApp Access Token — add SIM, verify Meta dev account, get token
 - [ ] Register Vapi webhook in Vapi dashboard: `https://mannadigitalhub.co.za/api/vapi/webhook`
@@ -34,6 +36,9 @@ Site is **LIVE**. PM2 online, node_modules installed, all env vars set. Last act
 ## Key Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Lime brand color (not emerald) | User feedback: "too green, should be lime" | 2026-04-10 |
+| 5 services (added Social Media AI + Website Design) | Expand revenue; site itself proves web capability | 2026-04-10 |
+| Pricing increase (R3,500+ setup) | Signals quality, filters tire-kickers; ~40% of SA market rate | 2026-04-10 |
 | Remove Manus runtime plugin | Was redirecting to resolutionsahomes.com | 2026-04-08 |
 | Proxy via `.htaccess [P,L]` | LiteSpeed on Truehost — only way to forward to Node.js | 2026-04-07 |
 | dist/ files tracked in git | Server can't run vite build; committed dist = deployment | 2026-04-08 |
@@ -43,9 +48,11 @@ Site is **LIVE**. PM2 online, node_modules installed, all env vars set. Last act
 ## Key Files
 | File | Purpose |
 |------|---------|
+| `client/src/pages/LandingPage.tsx` | Full landing page — 5 services, 5 pricing plans, lime colors |
+| `client/src/index.css` | Brand colors (lime oklch hue 120), glow, gradient text |
+| `server/routers/payment.ts` | PayFast: 5 plans (starter R1200, chatbot R950, social R2000, complete R2800, fullsuite R4500) |
 | `~/public_html/.htaccess` | LiteSpeed proxy → port 3000 |
 | `~/manna-agency-hub/dist/index.js` | Server bundle (PM2 runs this) |
-| `server/routers/payment.ts` | PayFast subscription form builder |
 | `server/vapi-webhook.ts` | Vapi voice call handler |
 | `server/payfast-webhook.ts` | PayFast ITN handler |
 | `server/routers/analytics.ts` | Live dashboard metrics |
@@ -60,6 +67,17 @@ Site is **LIVE**. PM2 online, node_modules installed, all env vars set. Last act
 - **Future deploys** (no new packages): git pull + pm2 restart only
 - **New packages added**: git pull + npm install --omit=dev + pm2 restart
 
+## Pricing Reference (current live)
+| Plan | Setup | Monthly | PayFast key |
+|------|-------|---------|-------------|
+| WhatsApp Starter | R3,500 | R1,200 | `starter` |
+| AI Website Chatbot | R4,000 | R950 | `chatbot` |
+| Social Media AI | R3,500 | R2,000 | `social` |
+| AI Complete ★ | R9,500 | R2,800 | `complete` |
+| Full Suite | R15,000 | R4,500 | `fullsuite` |
+| Website Design | R5,000–R15,000 | R800 hosting | WhatsApp CTA |
+| Full AI Business Stack (bundle) | R15,000 | R4,500 | WhatsApp CTA |
+
 ## Known Issues
 - cageFS resource limits may still kill PM2 under heavy load (Truehost ticket open)
 - WhatsApp + Facebook webhooks inactive until tokens added to .env
@@ -68,7 +86,8 @@ Site is **LIVE**. PM2 online, node_modules installed, all env vars set. Last act
 - 2026-04-07: Initial deployment — PM2, .htaccess, SSL
 - 2026-04-08: Fixed Manus runtime redirect, rebuilt bundle, fixed .htaccess
 - 2026-04-09: PayFast form, live admin metrics, Vapi webhook built and pushed
-- 2026-04-10: Full debug audit — fixed 3 critical bugs (SQL columns, PayFast redirect, admin creds). Fixed npm install permanently (.npmrc). Site now live with PM2 online.
+- 2026-04-10: Full debug audit — fixed 3 critical bugs, .npmrc fix, site live
+- 2026-04-10: UI overhaul — lime colors, 5 services, 5 pricing plans, admin link, overflow fix
 
 ## User Preferences
 - Direct communication, no fluff
