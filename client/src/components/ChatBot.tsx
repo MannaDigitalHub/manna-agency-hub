@@ -117,15 +117,14 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         message: userMessage,
       });
 
-      if (result.success) {
-        const botMsg: Message = {
-          id: `bot-${Date.now()}`,
-          type: 'bot',
-          content: result.message,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, botMsg]);
-      }
+      // Always show the bot message — even on API error the server
+      // returns a human-friendly fallback in result.message.
+      setMessages(prev => [...prev, {
+        id: `bot-${Date.now()}`,
+        type: 'bot',
+        content: result.message,
+        timestamp: new Date(),
+      }]);
     } catch {
       const errorMsg: Message = {
         id: `bot-error-${Date.now()}`,
@@ -206,14 +205,14 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         >
           <div className="relative">
             {/* Pulse ring */}
-            <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-20" />
+            <div className="absolute inset-0 bg-lime-500 rounded-full animate-ping opacity-20" />
             {/* Button */}
-            <div className="relative p-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 glow-green">
+            <div className="relative p-4 bg-gradient-to-r from-lime-500 to-green-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 glow-green">
               <MessageCircle className="w-6 h-6" />
             </div>
             {/* Badge */}
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-md">
-              <Sparkles className="w-3 h-3 text-emerald-600" />
+              <Sparkles className="w-3 h-3 text-lime-600" />
             </div>
           </div>
           {/* Tooltip */}
@@ -229,19 +228,19 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         <Card className="fixed bottom-6 right-6 w-[380px] sm:w-[420px] h-[620px] flex flex-col shadow-2xl z-50 rounded-2xl overflow-hidden border-0"
           style={{ background: 'oklch(0.14 0.015 260)' }}>
           {/* Header */}
-          <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white p-4 flex justify-between items-center shrink-0">
+          <div className="bg-gradient-to-r from-lime-500 to-lime-600 text-white p-4 flex justify-between items-center shrink-0">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold backdrop-blur-sm">
                   M
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-300 rounded-full border-2 border-emerald-600" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-300 rounded-full border-2 border-lime-600" />
               </div>
               <div>
                 <h3 className="font-bold text-base">{title}</h3>
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-emerald-200" />
-                  <p className="text-xs text-emerald-100">{subtitle}</p>
+                  <Sparkles className="w-3 h-3 text-lime-200" />
+                  <p className="text-xs text-lime-100">{subtitle}</p>
                 </div>
               </div>
             </div>
@@ -266,8 +265,8 @@ export const ChatBot: React.FC<ChatBotProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ background: 'oklch(0.12 0.015 260)' }}>
             {messages.length === 0 && !isLoading ? (
               <div className="text-center py-8 space-y-3">
-                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-emerald-400" />
+                <div className="w-16 h-16 mx-auto rounded-full bg-lime-500/10 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-lime-400" />
                 </div>
                 <p className="text-slate-400 text-sm">Starting conversation...</p>
               </div>
@@ -278,19 +277,19 @@ export const ChatBot: React.FC<ChatBotProps> = ({
                   className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
                 >
                   {message.type === 'bot' && (
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center mr-2 mt-1 shrink-0">
-                      <span className="text-xs font-bold text-emerald-400">M</span>
+                    <div className="w-7 h-7 rounded-full bg-lime-500/20 flex items-center justify-center mr-2 mt-1 shrink-0">
+                      <span className="text-xs font-bold text-lime-400">M</span>
                     </div>
                   )}
                   <div
                     className={`max-w-[80%] px-4 py-3 rounded-2xl ${
                       message.type === 'user'
-                        ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-br-sm'
+                        ? 'bg-gradient-to-r from-lime-500 to-green-600 text-white rounded-br-sm'
                         : 'bg-white/8 text-slate-200 border border-white/5 rounded-bl-sm'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                    <span className={`text-[10px] mt-1.5 block ${message.type === 'user' ? 'text-emerald-100' : 'text-slate-500'}`}>
+                    <span className={`text-[10px] mt-1.5 block ${message.type === 'user' ? 'text-lime-100' : 'text-slate-500'}`}>
                       {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -301,14 +300,14 @@ export const ChatBot: React.FC<ChatBotProps> = ({
             {/* Typing indicator */}
             {isLoading && (
               <div className="flex justify-start animate-in fade-in duration-200">
-                <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center mr-2 mt-1 shrink-0">
-                  <span className="text-xs font-bold text-emerald-400">M</span>
+                <div className="w-7 h-7 rounded-full bg-lime-500/20 flex items-center justify-center mr-2 mt-1 shrink-0">
+                  <span className="text-xs font-bold text-lime-400">M</span>
                 </div>
                 <div className="bg-white/8 border border-white/5 px-4 py-3 rounded-2xl rounded-bl-sm">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                    <div className="w-2 h-2 bg-lime-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-lime-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                    <div className="w-2 h-2 bg-lime-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
                   </div>
                 </div>
               </div>
@@ -323,7 +322,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
                     <button
                       key={i}
                       onClick={() => handleQuickAction(action.label)}
-                      className="px-3 py-1.5 text-xs bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/30 text-slate-300 hover:text-emerald-300 rounded-full transition-all duration-200"
+                      className="px-3 py-1.5 text-xs bg-white/5 hover:bg-lime-500/10 border border-white/10 hover:border-lime-500/30 text-slate-300 hover:text-lime-300 rounded-full transition-all duration-200"
                     >
                       {action.emoji} {action.label}
                     </button>
@@ -345,19 +344,19 @@ export const ChatBot: React.FC<ChatBotProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 disabled={isLoading}
-                className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl h-11"
+                className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-lime-500/50 focus:ring-lime-500/20 rounded-xl h-11"
               />
               <Button
                 type="submit"
                 disabled={isLoading || !inputValue.trim()}
                 size="icon"
-                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-xl h-11 w-11 shrink-0 disabled:opacity-30"
+                className="bg-gradient-to-r from-lime-500 to-green-600 hover:from-lime-400 hover:to-green-500 text-white rounded-xl h-11 w-11 shrink-0 disabled:opacity-30"
               >
                 <Send className="w-4 h-4" />
               </Button>
             </form>
             <div className="flex items-center justify-center gap-1.5 mt-2">
-              <Sparkles className="w-3 h-3 text-emerald-500/50" />
+              <Sparkles className="w-3 h-3 text-lime-500/50" />
               <span className="text-[10px] text-slate-600">Powered by Manna AI</span>
             </div>
           </div>

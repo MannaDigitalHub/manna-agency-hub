@@ -234,8 +234,8 @@ function HeroSection() {
       <div className="absolute bottom-0 left-0 right-0 py-4 bg-gradient-to-r from-lime-900/10 via-lime-800/5 to-lime-900/10 border-t border-b border-white/5 overflow-hidden">
         <div className="animate-marquee flex whitespace-nowrap">
           {["WhatsApp Automation", "AI Chatbots", "Lead Follow-Up", "Social Media AI", "24/7 Response", "Website Design", "South Africa", "Nigeria", "Kenya", "Ghana", "Garden Route", "George", "Cape Town", "POPIA Compliant", "Stop Losing Leads", "WhatsApp Automation", "AI Chatbots", "Lead Follow-Up", "Social Media AI", "24/7 Response", "Website Design", "South Africa", "Nigeria", "Kenya", "Ghana", "Garden Route", "George", "Cape Town", "POPIA Compliant", "Stop Losing Leads"].map((t, i) => (
-            <span key={i} className="mx-6 text-sm text-slate-500 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-lime-500/50 rounded-full" />
+            <span key={i} className="mx-10 text-sm text-slate-400 flex items-center gap-3">
+              <span className="w-2 h-2 bg-lime-500/60 rounded-full shrink-0" />
               {t}
             </span>
           ))}

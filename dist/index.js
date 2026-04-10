@@ -845,6 +845,19 @@ var SDKServer = class {
     }
     const sessionUserId = session.openId;
     const signedInAt = /* @__PURE__ */ new Date();
+    if (sessionUserId === "admin") {
+      return {
+        id: 0,
+        openId: "admin",
+        name: session.name || "Admin",
+        email: ENV.adminEmail || null,
+        loginMethod: "password",
+        role: "admin",
+        createdAt: signedInAt,
+        updatedAt: signedInAt,
+        lastSignedIn: signedInAt
+      };
+    }
     let user = await getUserByOpenId(sessionUserId);
     if (!user) {
       try {
@@ -1784,16 +1797,10 @@ async function callMannaBot(sessionMessages, newUserMessage) {
   const response = await anthropic.messages.create({
     model: BOT_MODEL,
     max_tokens: 1024,
-    // System prompt with cache_control — static text qualifies for caching
-    // on Haiku (min 4096 tokens). The prompt is ~1800 tokens so no cache hit
-    // yet, but adding the marker costs nothing and future growth will benefit.
-    system: [
-      {
-        type: "text",
-        text: MANNA_SYSTEM_PROMPT,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
+    // Plain string system prompt — cache_control requires the prompt-caching
+    // beta header which is NOT automatically added by the SDK. Removing it
+    // ensures every call succeeds. Re-add once prompt is >4096 tokens.
+    system: MANNA_SYSTEM_PROMPT,
     messages: [
       // Inject prior conversation history
       ...sessionMessages.map((m) => ({ role: m.role, content: m.content })),

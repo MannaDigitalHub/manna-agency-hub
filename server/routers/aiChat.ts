@@ -239,16 +239,10 @@ export async function callMannaBot(
   const response = await anthropic.messages.create({
     model: BOT_MODEL,
     max_tokens: 1024,
-    // System prompt with cache_control — static text qualifies for caching
-    // on Haiku (min 4096 tokens). The prompt is ~1800 tokens so no cache hit
-    // yet, but adding the marker costs nothing and future growth will benefit.
-    system: [
-      {
-        type: 'text',
-        text: MANNA_SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ],
+    // Plain string system prompt — cache_control requires the prompt-caching
+    // beta header which is NOT automatically added by the SDK. Removing it
+    // ensures every call succeeds. Re-add once prompt is >4096 tokens.
+    system: MANNA_SYSTEM_PROMPT,
     messages: [
       // Inject prior conversation history
       ...sessionMessages.map(m => ({ role: m.role, content: m.content })),

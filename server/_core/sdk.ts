@@ -257,7 +257,6 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<User> {
-    // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
@@ -268,9 +267,29 @@ class SDKServer {
 
     const sessionUserId = session.openId;
     const signedInAt = new Date();
+
+    // ── Hard-coded admin bypass ───────────────────────────────────
+    // The admin user is authenticated via email+password (not OAuth).
+    // The JWT is the source of truth here — no DB row is needed.
+    // This avoids a chicken-and-egg problem where the users table may
+    // not exist yet, or the DB is temporarily unavailable.
+    if (sessionUserId === 'admin') {
+      return {
+        id: 0,
+        openId: 'admin',
+        name: session.name || 'Admin',
+        email: ENV.adminEmail || null,
+        loginMethod: 'password',
+        role: 'admin',
+        createdAt: signedInAt,
+        updatedAt: signedInAt,
+        lastSignedIn: signedInAt,
+      } as User;
+    }
+
+    // ── OAuth user flow ───────────────────────────────────────────
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
