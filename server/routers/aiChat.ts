@@ -248,7 +248,7 @@ async function callGemini(
   ];
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -340,8 +340,9 @@ export const aiChatRouter = router({
         }
 
         return { success: true, message: reply, leadCaptured: !!leadData };
-      } catch (err) {
-        console.error('[MannaBot] Claude API error:', err);
+      } catch (err: any) {
+        // Log full error so PM2 logs show exactly what failed
+        console.error('[MannaBot] ALL providers failed:', err?.message ?? String(err));
         const fallback =
           "I'm having a moment — but I'm still here! 😊 Please try again, or reach Mela on WhatsApp: +27 73 406 1526";
         conv.messages.push({ role: 'user', content: message });
