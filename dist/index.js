@@ -2296,9 +2296,11 @@ import crypto3 from "crypto";
 import { nanoid } from "nanoid";
 import { z as z8 } from "zod";
 var PLANS = {
-  starter: { name: "WhatsApp Starter", amount: 800 },
-  complete: { name: "AI Complete", amount: 2500 },
-  chatbot: { name: "Chatbot Only", amount: 600 }
+  starter: { name: "WhatsApp Starter", amount: 1200 },
+  chatbot: { name: "AI Website Chatbot", amount: 950 },
+  social: { name: "Social Media AI", amount: 2e3 },
+  complete: { name: "AI Complete", amount: 2800 },
+  fullsuite: { name: "Full AI Business Suite", amount: 4500 }
 };
 function buildSignature(params, passphrase) {
   const sortedKeys = Object.keys(params).sort();
@@ -2307,7 +2309,7 @@ function buildSignature(params, passphrase) {
   return crypto3.createHash("md5").update(withPassphrase).digest("hex");
 }
 var paymentRouter = router({
-  createSubscriptionForm: publicProcedure.input(z8.object({ plan: z8.enum(["starter", "complete", "chatbot"]) })).mutation(({ input }) => {
+  createSubscriptionForm: publicProcedure.input(z8.object({ plan: z8.enum(["starter", "chatbot", "social", "complete", "fullsuite"]) })).mutation(({ input }) => {
     const plan = PLANS[input.plan];
     const isSandbox = ENV.payfastSandbox;
     const action = isSandbox ? "https://sandbox.payfast.co.za/eng/process" : "https://www.payfast.co.za/eng/process";

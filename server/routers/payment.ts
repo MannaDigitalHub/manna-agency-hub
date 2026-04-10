@@ -19,9 +19,11 @@ import { ENV } from '../_core/env';
 import { publicProcedure, router } from '../_core/trpc';
 
 const PLANS = {
-  starter: { name: 'WhatsApp Starter', amount: 800 },
-  complete: { name: 'AI Complete', amount: 2500 },
-  chatbot: { name: 'Chatbot Only', amount: 600 },
+  starter: { name: 'WhatsApp Starter', amount: 1200 },
+  chatbot: { name: 'AI Website Chatbot', amount: 950 },
+  social: { name: 'Social Media AI', amount: 2000 },
+  complete: { name: 'AI Complete', amount: 2800 },
+  fullsuite: { name: 'Full AI Business Suite', amount: 4500 },
 } as const;
 
 function buildSignature(params: Record<string, string>, passphrase: string): string {
@@ -40,7 +42,7 @@ function buildSignature(params: Record<string, string>, passphrase: string): str
 
 export const paymentRouter = router({
   createSubscriptionForm: publicProcedure
-    .input(z.object({ plan: z.enum(['starter', 'complete', 'chatbot']) }))
+    .input(z.object({ plan: z.enum(['starter', 'chatbot', 'social', 'complete', 'fullsuite']) }))
     .mutation(({ input }) => {
       const plan = PLANS[input.plan];
       const isSandbox = ENV.payfastSandbox;
