@@ -136,7 +136,7 @@ async function startServer() {
 
   // PayFast return/cancel redirects
   app.get("/api/payfast/return", (_req: Request, res: Response) => {
-    res.redirect("/thank-you");
+    res.redirect("/payment/success");
   });
   app.get("/api/payfast/cancel", (_req: Request, res: Response) => {
     res.redirect("/pricing?cancelled=true");

@@ -213,8 +213,8 @@ export async function saveLeadToDb(
     if (!db) return;
     await (db as any).execute(
       `INSERT INTO bot_leads
-         (name, business_name, phone, email, language, conversation_summary, source, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW())`,
+         (name, businessName, phone, email, language, conversationSummary, source, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'new')`,
       [
         leadData.name ?? 'Unknown',
         leadData.business ?? null,

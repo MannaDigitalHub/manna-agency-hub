@@ -1759,8 +1759,8 @@ async function saveLeadToDb(leadData, conversationSummary, source = "website_bot
     if (!db) return;
     await db.execute(
       `INSERT INTO bot_leads
-         (name, business_name, phone, email, language, conversation_summary, source, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW())`,
+         (name, businessName, phone, email, language, conversationSummary, source, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'new')`,
       [
         leadData.name ?? "Unknown",
         leadData.business ?? null,
@@ -3076,7 +3076,7 @@ async function startServer() {
   app.use("/api/payfast", webhookRateLimiter, payfast_webhook_default);
   app.use("/api/vapi", webhookRateLimiter, vapi_webhook_default);
   app.get("/api/payfast/return", (_req, res) => {
-    res.redirect("/thank-you");
+    res.redirect("/payment/success");
   });
   app.get("/api/payfast/cancel", (_req, res) => {
     res.redirect("/pricing?cancelled=true");
