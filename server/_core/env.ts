@@ -35,6 +35,9 @@ export const ENV = {
   // ── Anthropic Claude (MannaBot) ─────────────────────────────
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
 
+  // ── Google Gemini (MannaBot fallback — free tier available) ──
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+
   // ── PayFast ─────────────────────────────────────────────────
   payfastMerchantId: process.env.PAYFAST_MERCHANT_ID ?? "34228175",
   payfastMerchantKey: process.env.PAYFAST_MERCHANT_KEY ?? "",

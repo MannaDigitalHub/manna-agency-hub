@@ -231,29 +231,75 @@ export async function saveLeadToDb(
   }
 }
 
-// ─── Core: call Claude Haiku and return cleaned response ─────
+// ─── Gemini fallback (free tier — no Anthropic credits needed) ──
+async function callGemini(
+  sessionMessages: ConversationEntry[],
+  newUserMessage: string,
+): Promise<string> {
+  const apiKey = ENV.geminiApiKey;
+  if (!apiKey) throw new Error('No Gemini API key configured');
+
+  const contents = [
+    ...sessionMessages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })),
+    { role: 'user', parts: [{ text: newUserMessage }] },
+  ];
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: MANNA_SYSTEM_PROMPT }] },
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Gemini error ${res.status}: ${JSON.stringify(err)}`);
+  }
+
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'How can I help your business today? 😊';
+}
+
+// ─── Core: call AI and return cleaned response ────────────────
+// Tries Anthropic (Claude Haiku) first. If Anthropic fails due to
+// billing or quota, automatically falls back to Google Gemini.
 export async function callMannaBot(
   sessionMessages: ConversationEntry[],
   newUserMessage: string,
 ): Promise<{ reply: string; rawReply: string }> {
-  const response = await anthropic.messages.create({
-    model: BOT_MODEL,
-    max_tokens: 1024,
-    // Plain string system prompt — cache_control requires the prompt-caching
-    // beta header which is NOT automatically added by the SDK. Removing it
-    // ensures every call succeeds. Re-add once prompt is >4096 tokens.
-    system: MANNA_SYSTEM_PROMPT,
-    messages: [
-      // Inject prior conversation history
-      ...sessionMessages.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: newUserMessage },
-    ],
-  });
+  let rawReply: string;
 
-  const rawReply =
-    response.content[0]?.type === 'text'
+  try {
+    const response = await anthropic.messages.create({
+      model: BOT_MODEL,
+      max_tokens: 1024,
+      system: MANNA_SYSTEM_PROMPT,
+      messages: [
+        ...sessionMessages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: newUserMessage },
+      ],
+    });
+    rawReply = response.content[0]?.type === 'text'
       ? response.content[0].text
       : 'How can I help your business today? 😊';
+  } catch (anthropicErr: any) {
+    // If Anthropic fails (billing/quota), try Gemini
+    if (ENV.geminiApiKey) {
+      console.warn('[MannaBot] Anthropic unavailable, falling back to Gemini:', anthropicErr?.message ?? anthropicErr);
+      rawReply = await callGemini(sessionMessages, newUserMessage);
+    } else {
+      throw anthropicErr;
+    }
+  }
 
   const { cleanResponse: reply } = extractLeadData(rawReply);
   return { reply, rawReply };

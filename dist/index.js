@@ -308,6 +308,8 @@ var ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   // ── Anthropic Claude (MannaBot) ─────────────────────────────
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  // ── Google Gemini (MannaBot fallback — free tier available) ──
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   // ── PayFast ─────────────────────────────────────────────────
   payfastMerchantId: process.env.PAYFAST_MERCHANT_ID ?? "34228175",
   payfastMerchantKey: process.env.PAYFAST_MERCHANT_KEY ?? "",
@@ -1793,21 +1795,56 @@ async function saveLeadToDb(leadData, conversationSummary, source = "website_bot
     console.error("[MannaBot] Failed to save lead:", err);
   }
 }
+async function callGemini(sessionMessages, newUserMessage) {
+  const apiKey = ENV.geminiApiKey;
+  if (!apiKey) throw new Error("No Gemini API key configured");
+  const contents = [
+    ...sessionMessages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    })),
+    { role: "user", parts: [{ text: newUserMessage }] }
+  ];
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: MANNA_SYSTEM_PROMPT }] },
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
+      })
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Gemini error ${res.status}: ${JSON.stringify(err)}`);
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "How can I help your business today? \u{1F60A}";
+}
 async function callMannaBot(sessionMessages, newUserMessage) {
-  const response = await anthropic.messages.create({
-    model: BOT_MODEL,
-    max_tokens: 1024,
-    // Plain string system prompt — cache_control requires the prompt-caching
-    // beta header which is NOT automatically added by the SDK. Removing it
-    // ensures every call succeeds. Re-add once prompt is >4096 tokens.
-    system: MANNA_SYSTEM_PROMPT,
-    messages: [
-      // Inject prior conversation history
-      ...sessionMessages.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: newUserMessage }
-    ]
-  });
-  const rawReply = response.content[0]?.type === "text" ? response.content[0].text : "How can I help your business today? \u{1F60A}";
+  let rawReply;
+  try {
+    const response = await anthropic.messages.create({
+      model: BOT_MODEL,
+      max_tokens: 1024,
+      system: MANNA_SYSTEM_PROMPT,
+      messages: [
+        ...sessionMessages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: newUserMessage }
+      ]
+    });
+    rawReply = response.content[0]?.type === "text" ? response.content[0].text : "How can I help your business today? \u{1F60A}";
+  } catch (anthropicErr) {
+    if (ENV.geminiApiKey) {
+      console.warn("[MannaBot] Anthropic unavailable, falling back to Gemini:", anthropicErr?.message ?? anthropicErr);
+      rawReply = await callGemini(sessionMessages, newUserMessage);
+    } else {
+      throw anthropicErr;
+    }
+  }
   const { cleanResponse: reply } = extractLeadData(rawReply);
   return { reply, rawReply };
 }
