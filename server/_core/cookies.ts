@@ -39,10 +39,15 @@ export function getSessionCookieOptions(
   //       ? hostname
   //       : undefined;
 
+  const secure = isSecureRequest(req);
+
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    // "lax" works for same-site admin login and doesn't require secure:true.
+    // "none" is only needed for cross-site embeds and requires secure:true —
+    // which only works once trust proxy is properly configured.
+    sameSite: secure ? "none" : "lax",
+    secure,
   };
 }

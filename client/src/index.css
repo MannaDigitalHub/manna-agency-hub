@@ -129,6 +129,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
+    overflow-x: hidden;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;

@@ -73,6 +73,12 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  // ── Trust proxy (LiteSpeed / Nginx reverse proxy) ─────────────
+  // Required so req.protocol correctly reads "https" from X-Forwarded-Proto.
+  // Without this, sameSite:"none" cookies are rejected by browsers because
+  // secure:true cannot be set when Express thinks the request is plain HTTP.
+  app.set("trust proxy", true);
+
   // ── Security headers ─────────────────────────────────────────
   app.use(helmet({
     contentSecurityPolicy: {

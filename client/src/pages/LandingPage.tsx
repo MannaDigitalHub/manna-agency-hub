@@ -57,7 +57,7 @@ function Navbar() {
             </Button>
           ) : (
             <>
-              <a href="/admin" className="px-3 py-2 text-sm text-slate-500 hover:text-slate-300 transition-colors rounded-lg hover:bg-white/5 flex items-center gap-1.5">
+              <a href="/admin/login" className="px-3 py-2 text-sm text-slate-500 hover:text-slate-300 transition-colors rounded-lg hover:bg-white/5 flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5" /> Admin
               </a>
               <a href="https://wa.me/27734061526?text=Hi%2C%20I%20want%20to%20automate%20my%20business" target="_blank" rel="noopener noreferrer">
@@ -88,7 +88,7 @@ function Navbar() {
               <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)} className="px-4 py-3 text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">{l.label}</a>
             ))}
             <div className="flex flex-col gap-2 mt-4 px-4">
-              <a href="/admin" className="flex items-center gap-2 px-4 py-3 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-lg transition-colors text-sm">
+              <a href="/admin/login" className="flex items-center gap-2 px-4 py-3 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-lg transition-colors text-sm">
                 <Lock className="w-4 h-4" /> Admin Login
               </a>
               <a href="https://wa.me/27734061526?text=Hi%2C%20I%20want%20to%20automate%20my%20business" target="_blank" rel="noopener noreferrer">
@@ -946,7 +946,7 @@ function Footer() {
               <li><a href="#how" className="hover:text-lime-400 transition-colors">How It Works</a></li>
               <li><a href="#pricing" className="hover:text-lime-400 transition-colors">Pricing</a></li>
               <li><a href="#contact" className="hover:text-lime-400 transition-colors">Contact</a></li>
-              <li><a href="/admin" className="hover:text-lime-400 transition-colors">Admin Login</a></li>
+              <li><a href="/admin/login" className="hover:text-lime-400 transition-colors">Admin Login</a></li>
             </ul>
           </div>
 

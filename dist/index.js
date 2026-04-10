@@ -635,11 +635,15 @@ function isSecureRequest(req) {
   return protoList.some((proto) => proto.trim().toLowerCase() === "https");
 }
 function getSessionCookieOptions(req) {
+  const secure = isSecureRequest(req);
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req)
+    // "lax" works for same-site admin login and doesn't require secure:true.
+    // "none" is only needed for cross-site embeds and requires secure:true —
+    // which only works once trust proxy is properly configured.
+    sameSite: secure ? "none" : "lax",
+    secure
   };
 }
 
@@ -1590,7 +1594,7 @@ var botLeadsRouter = router({
 import { z as z5 } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 var anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey || process.env.ANTHROPIC_API_KEY });
-var BOT_MODEL = "claude-haiku-4-5";
+var BOT_MODEL = "claude-haiku-4-5-20251001";
 var MANNA_SYSTEM_PROMPT = `You are **Manna Bot**, the AI-powered virtual assistant for **Manna Digital Hub** \u2014 a South African AI automation agency that helps businesses stop losing leads, clients, and revenue by automating their customer communication.
 
 ## YOUR IDENTITY
@@ -3030,6 +3034,7 @@ var clientAuthLimiter = rateLimit({
 async function startServer() {
   const app = express2();
   const server = createServer(app);
+  app.set("trust proxy", true);
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {

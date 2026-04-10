@@ -9,7 +9,7 @@ const anthropic = new Anthropic({ apiKey: ENV.anthropicApiKey || process.env.ANT
 
 // ─── Model ────────────────────────────────────────────────────
 // Haiku 4.5: fastest + cheapest, perfect for high-volume conversational bot
-const BOT_MODEL = 'claude-haiku-4-5' as const;
+const BOT_MODEL = 'claude-haiku-4-5-20251001' as const;
 
 // ─── Manna Bot System Prompt ─────────────────────────────────
 // NOTE: cache_control is added at call time — the system prompt itself is stored
