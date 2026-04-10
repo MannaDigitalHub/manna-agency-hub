@@ -147,9 +147,10 @@
   }
 }
 
-/* Smooth scrolling */
+/* Smooth scrolling + kill horizontal overflow */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 /* Custom scrollbar */
