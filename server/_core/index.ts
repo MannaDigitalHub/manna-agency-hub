@@ -77,7 +77,7 @@ async function startServer() {
   // Required so req.protocol correctly reads "https" from X-Forwarded-Proto.
   // Without this, sameSite:"none" cookies are rejected by browsers because
   // secure:true cannot be set when Express thinks the request is plain HTTP.
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
 
   // ── Security headers ─────────────────────────────────────────
   app.use(helmet({

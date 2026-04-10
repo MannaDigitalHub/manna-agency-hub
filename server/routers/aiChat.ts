@@ -232,6 +232,17 @@ export async function saveLeadToDb(
 }
 
 // ─── Gemini fallback (free tier — no Anthropic credits needed) ──
+// Tries multiple model names because Google renames/deprecates models frequently.
+const GEMINI_MODELS = [
+  { version: 'v1',     model: 'gemini-1.5-flash' },
+  { version: 'v1beta', model: 'gemini-1.5-flash-latest' },
+  { version: 'v1',     model: 'gemini-1.5-flash-latest' },
+  { version: 'v1beta', model: 'gemini-2.0-flash' },
+  { version: 'v1',     model: 'gemini-2.0-flash' },
+  { version: 'v1beta', model: 'gemini-1.0-pro' },
+  { version: 'v1beta', model: 'gemini-pro' },
+];
+
 async function callGemini(
   sessionMessages: ConversationEntry[],
   newUserMessage: string,
@@ -247,26 +258,36 @@ async function callGemini(
     { role: 'user', parts: [{ text: newUserMessage }] },
   ];
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: { parts: [{ text: MANNA_SYSTEM_PROMPT }] },
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
-      }),
-    },
-  );
+  const body = JSON.stringify({
+    contents,
+    systemInstruction: { parts: [{ text: MANNA_SYSTEM_PROMPT }] },
+    generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+  });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Gemini error ${res.status}: ${JSON.stringify(err)}`);
+  for (const { version, model } of GEMINI_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          console.log(`[MannaBot] Gemini success: ${version}/${model}`);
+          return text;
+        }
+      }
+
+      const errBody = await res.json().catch(() => ({}));
+      console.warn(`[MannaBot] Gemini ${model} (${version}) → ${res.status}: ${(errBody as any)?.error?.message ?? 'unknown'}`);
+    } catch (e: any) {
+      console.warn(`[MannaBot] Gemini ${model} exception: ${e?.message ?? e}`);
+    }
   }
 
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'How can I help your business today? 😊';
+  throw new Error('All Gemini models returned 404 — check API key and project billing at aistudio.google.com');
 }
 
 // ─── Core: call AI and return cleaned response ────────────────
