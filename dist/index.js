@@ -787,11 +787,11 @@ var SDKServer = class {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
     const expected = nodeCrypto.createHmac("sha256", secret).update(`${parts[0]}.${parts[1]}`).digest("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-    const sigBuf = Buffer.from(expected);
-    const tokBuf = Buffer.from(parts[2].padEnd(parts[2].length + (4 - parts[2].length % 4) % 4, "="), "base64url");
-    if (sigBuf.length !== tokBuf.length) return null;
+    const expBuf = Buffer.from(expected, "utf8");
+    const tokBuf = Buffer.from(parts[2], "utf8");
+    if (expBuf.length !== tokBuf.length) return null;
     try {
-      if (!nodeCrypto.timingSafeEqual(sigBuf, tokBuf)) return null;
+      if (!nodeCrypto.timingSafeEqual(expBuf, tokBuf)) return null;
     } catch {
       return null;
     }
@@ -2072,10 +2072,10 @@ async function verifyClientSession(token) {
     const expected = b64url(
       crypto.createHmac("sha256", secret).update(`${parts[0]}.${parts[1]}`).digest()
     );
-    const sigBuf = Buffer.from(expected);
-    const tokBuf = Buffer.from(parts[2].padEnd(parts[2].length + (4 - parts[2].length % 4) % 4, "="), "base64url");
-    if (sigBuf.length !== tokBuf.length) return null;
-    if (!crypto.timingSafeEqual(sigBuf, tokBuf)) return null;
+    const expBuf = Buffer.from(expected, "utf8");
+    const tokBuf = Buffer.from(parts[2], "utf8");
+    if (expBuf.length !== tokBuf.length) return null;
+    if (!crypto.timingSafeEqual(expBuf, tokBuf)) return null;
     const parsed = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
     if (typeof parsed.exp === "number" && Math.floor(Date.now() / 1e3) > parsed.exp) return null;
     const { clientId, email, businessName } = parsed;
