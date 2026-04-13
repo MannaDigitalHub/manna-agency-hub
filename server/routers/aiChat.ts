@@ -231,6 +231,44 @@ export async function saveLeadToDb(
   }
 }
 
+// ─── Groq fallback (free tier — OpenAI-compatible, very fast) ───
+async function callGroq(
+  sessionMessages: ConversationEntry[],
+  newUserMessage: string,
+): Promise<string> {
+  const apiKey = ENV.groqApiKey;
+  if (!apiKey) throw new Error('No Groq API key configured');
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: MANNA_SYSTEM_PROMPT },
+        ...sessionMessages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: newUserMessage },
+      ],
+      max_tokens: 1024,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Groq error ${res.status}: ${JSON.stringify(err)}`);
+  }
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error('Groq returned empty response');
+  console.log('[MannaBot] Groq success (llama-3.1-8b-instant)');
+  return text;
+}
+
 // ─── Gemini fallback (free tier — no Anthropic credits needed) ──
 // Tries multiple model names because Google renames/deprecates models frequently.
 const GEMINI_MODELS = [
@@ -313,9 +351,20 @@ export async function callMannaBot(
       ? response.content[0].text
       : 'How can I help your business today? 😊';
   } catch (anthropicErr: any) {
-    // If Anthropic fails (billing/quota), try Gemini
-    if (ENV.geminiApiKey) {
-      console.warn('[MannaBot] Anthropic unavailable, falling back to Gemini:', anthropicErr?.message ?? anthropicErr);
+    console.warn('[MannaBot] Anthropic unavailable:', anthropicErr?.message ?? anthropicErr);
+    // Fallback chain: Groq → Gemini
+    if (ENV.groqApiKey) {
+      try {
+        rawReply = await callGroq(sessionMessages, newUserMessage);
+      } catch (groqErr: any) {
+        console.warn('[MannaBot] Groq failed:', groqErr?.message ?? groqErr);
+        if (ENV.geminiApiKey) {
+          rawReply = await callGemini(sessionMessages, newUserMessage);
+        } else {
+          throw groqErr;
+        }
+      }
+    } else if (ENV.geminiApiKey) {
       rawReply = await callGemini(sessionMessages, newUserMessage);
     } else {
       throw anthropicErr;

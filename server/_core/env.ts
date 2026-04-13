@@ -35,6 +35,9 @@ export const ENV = {
   // ── Anthropic Claude (MannaBot) ─────────────────────────────
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
 
+  // ── Groq (MannaBot fallback — free tier, very fast) ──────────
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
+
   // ── Google Gemini (MannaBot fallback — free tier available) ──
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
 

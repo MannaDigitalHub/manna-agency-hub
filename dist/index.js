@@ -308,6 +308,8 @@ var ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   // ── Anthropic Claude (MannaBot) ─────────────────────────────
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  // ── Groq (MannaBot fallback — free tier, very fast) ──────────
+  groqApiKey: process.env.GROQ_API_KEY ?? "",
   // ── Google Gemini (MannaBot fallback — free tier available) ──
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   // ── PayFast ─────────────────────────────────────────────────
@@ -1795,6 +1797,36 @@ async function saveLeadToDb(leadData, conversationSummary, source = "website_bot
     console.error("[MannaBot] Failed to save lead:", err);
   }
 }
+async function callGroq(sessionMessages, newUserMessage) {
+  const apiKey = ENV.groqApiKey;
+  if (!apiKey) throw new Error("No Groq API key configured");
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: MANNA_SYSTEM_PROMPT },
+        ...sessionMessages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: newUserMessage }
+      ],
+      max_tokens: 1024,
+      temperature: 0.7
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Groq error ${res.status}: ${JSON.stringify(err)}`);
+  }
+  const data = await res.json();
+  const text2 = data.choices?.[0]?.message?.content;
+  if (!text2) throw new Error("Groq returned empty response");
+  console.log("[MannaBot] Groq success (llama-3.1-8b-instant)");
+  return text2;
+}
 var GEMINI_MODELS = [
   { version: "v1", model: "gemini-1.5-flash" },
   { version: "v1beta", model: "gemini-1.5-flash-latest" },
@@ -1855,8 +1887,19 @@ async function callMannaBot(sessionMessages, newUserMessage) {
     });
     rawReply = response.content[0]?.type === "text" ? response.content[0].text : "How can I help your business today? \u{1F60A}";
   } catch (anthropicErr) {
-    if (ENV.geminiApiKey) {
-      console.warn("[MannaBot] Anthropic unavailable, falling back to Gemini:", anthropicErr?.message ?? anthropicErr);
+    console.warn("[MannaBot] Anthropic unavailable:", anthropicErr?.message ?? anthropicErr);
+    if (ENV.groqApiKey) {
+      try {
+        rawReply = await callGroq(sessionMessages, newUserMessage);
+      } catch (groqErr) {
+        console.warn("[MannaBot] Groq failed:", groqErr?.message ?? groqErr);
+        if (ENV.geminiApiKey) {
+          rawReply = await callGemini(sessionMessages, newUserMessage);
+        } else {
+          throw groqErr;
+        }
+      }
+    } else if (ENV.geminiApiKey) {
       rawReply = await callGemini(sessionMessages, newUserMessage);
     } else {
       throw anthropicErr;
