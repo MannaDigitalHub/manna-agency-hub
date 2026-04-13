@@ -30,7 +30,7 @@ function Router() {
       />
       <Switch>
         {/* Public: Customer-facing landing page */}
-        <Route path="" component={LandingPage} />
+        <Route path="/" component={LandingPage} />
 
         {/* Admin: Login + Protected dashboard routes */}
         <Route path="/admin/login" component={AdminLogin} />
