@@ -1,6 +1,7 @@
 import { router, publicProcedure } from '../_core/trpc';
 import { z } from 'zod';
 import { getDb } from '../db';
+import { randomUUID } from 'node:crypto';
 
 export const botLeadsRouter = router({
   /**
@@ -22,7 +23,7 @@ export const botLeadsRouter = router({
         const db = await getDb();
         if (!db) throw new Error('Database not available');
 
-        const leadId = crypto.randomUUID();
+        const leadId = randomUUID();
         const now = Date.now();
 
         // Insert into database using raw SQL

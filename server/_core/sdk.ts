@@ -3,7 +3,7 @@ import { ForbiddenError } from "@shared/_core/errors";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
-import { SignJWT, jwtVerify } from "jose";
+import nodeCrypto from "node:crypto";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
@@ -154,9 +154,42 @@ class SDKServer {
     return new Map(Object.entries(parsed));
   }
 
-  private getSessionSecret() {
-    const secret = ENV.cookieSecret;
-    return new TextEncoder().encode(secret);
+  // ── Native HMAC-SHA256 JWT helpers ───────────────────────────
+  // jose v6 uses crypto as a bare global which fails on some Node.js
+  // hosting environments. These use node:crypto directly.
+
+  private b64url(input: string | Buffer): string {
+    const buf = typeof input === "string" ? Buffer.from(input) : input;
+    return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  }
+
+  private jwtSign(payload: object, expiresAt: number): string {
+    const secret = ENV.cookieSecret || "fallback-dev-secret-change-in-prod";
+    const header = this.b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const body = this.b64url(JSON.stringify({ ...payload, exp: expiresAt, iat: Math.floor(Date.now() / 1000) }));
+    const sig = this.b64url(
+      nodeCrypto.createHmac("sha256", secret).update(`${header}.${body}`).digest()
+    );
+    return `${header}.${body}.${sig}`;
+  }
+
+  private jwtVerifyRaw(token: string): Record<string, unknown> | null {
+    const secret = ENV.cookieSecret || "fallback-dev-secret-change-in-prod";
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const expected = nodeCrypto.createHmac("sha256", secret)
+      .update(`${parts[0]}.${parts[1]}`)
+      .digest("base64")
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    const sigBuf = Buffer.from(expected);
+    const tokBuf = Buffer.from(parts[2].padEnd(parts[2].length + ((4 - parts[2].length % 4) % 4), "="), "base64url");
+    if (sigBuf.length !== tokBuf.length) return null;
+    try {
+      if (!nodeCrypto.timingSafeEqual(sigBuf, tokBuf)) return null;
+    } catch { return null; }
+    const parsed = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    if (typeof parsed.exp === "number" && Math.floor(Date.now() / 1000) > parsed.exp) return null;
+    return parsed;
   }
 
   /**
@@ -182,19 +215,13 @@ class SDKServer {
     payload: SessionPayload,
     options: { expiresInMs?: number } = {}
   ): Promise<string> {
-    const issuedAt = Date.now();
     const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
-    const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
-    const secretKey = this.getSessionSecret();
-
-    return new SignJWT({
+    const expiresAt = Math.floor((Date.now() + expiresInMs) / 1000);
+    return this.jwtSign({
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
-    })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .setExpirationTime(expirationSeconds)
-      .sign(secretKey);
+    }, expiresAt);
   }
 
   async verifySession(
@@ -206,11 +233,8 @@ class SDKServer {
     }
 
     try {
-      const secretKey = this.getSessionSecret();
-      const { payload } = await jwtVerify(cookieValue, secretKey, {
-        algorithms: ["HS256"],
-      });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const payload = this.jwtVerifyRaw(cookieValue);
+      const { openId, appId, name } = (payload ?? {}) as Record<string, unknown>;
 
       if (
         !isNonEmptyString(openId) ||
@@ -221,11 +245,7 @@ class SDKServer {
         return null;
       }
 
-      return {
-        openId,
-        appId,
-        name,
-      };
+      return { openId, appId, name };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
       return null;

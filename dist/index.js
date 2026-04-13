@@ -664,7 +664,7 @@ var ForbiddenError = (msg) => new HttpError(403, msg);
 // server/_core/sdk.ts
 import axios from "axios";
 import { parse as parseCookieHeader } from "cookie";
-import { SignJWT, jwtVerify } from "jose";
+import nodeCrypto from "node:crypto";
 var isNonEmptyString = (value) => typeof value === "string" && value.length > 0;
 var EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 var GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
@@ -766,9 +766,38 @@ var SDKServer = class {
     const parsed = parseCookieHeader(cookieHeader);
     return new Map(Object.entries(parsed));
   }
-  getSessionSecret() {
-    const secret = ENV.cookieSecret;
-    return new TextEncoder().encode(secret);
+  // ── Native HMAC-SHA256 JWT helpers ───────────────────────────
+  // jose v6 uses crypto as a bare global which fails on some Node.js
+  // hosting environments. These use node:crypto directly.
+  b64url(input) {
+    const buf = typeof input === "string" ? Buffer.from(input) : input;
+    return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  }
+  jwtSign(payload, expiresAt) {
+    const secret = ENV.cookieSecret || "fallback-dev-secret-change-in-prod";
+    const header = this.b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const body = this.b64url(JSON.stringify({ ...payload, exp: expiresAt, iat: Math.floor(Date.now() / 1e3) }));
+    const sig = this.b64url(
+      nodeCrypto.createHmac("sha256", secret).update(`${header}.${body}`).digest()
+    );
+    return `${header}.${body}.${sig}`;
+  }
+  jwtVerifyRaw(token) {
+    const secret = ENV.cookieSecret || "fallback-dev-secret-change-in-prod";
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const expected = nodeCrypto.createHmac("sha256", secret).update(`${parts[0]}.${parts[1]}`).digest("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    const sigBuf = Buffer.from(expected);
+    const tokBuf = Buffer.from(parts[2].padEnd(parts[2].length + (4 - parts[2].length % 4) % 4, "="), "base64url");
+    if (sigBuf.length !== tokBuf.length) return null;
+    try {
+      if (!nodeCrypto.timingSafeEqual(sigBuf, tokBuf)) return null;
+    } catch {
+      return null;
+    }
+    const parsed = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    if (typeof parsed.exp === "number" && Math.floor(Date.now() / 1e3) > parsed.exp) return null;
+    return parsed;
   }
   /**
    * Create a session token for a Manus user openId
@@ -786,15 +815,13 @@ var SDKServer = class {
     );
   }
   async signSession(payload, options = {}) {
-    const issuedAt = Date.now();
     const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
-    const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1e3);
-    const secretKey = this.getSessionSecret();
-    return new SignJWT({
+    const expiresAt = Math.floor((Date.now() + expiresInMs) / 1e3);
+    return this.jwtSign({
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name
-    }).setProtectedHeader({ alg: "HS256", typ: "JWT" }).setExpirationTime(expirationSeconds).sign(secretKey);
+    }, expiresAt);
   }
   async verifySession(cookieValue) {
     if (!cookieValue) {
@@ -802,20 +829,13 @@ var SDKServer = class {
       return null;
     }
     try {
-      const secretKey = this.getSessionSecret();
-      const { payload } = await jwtVerify(cookieValue, secretKey, {
-        algorithms: ["HS256"]
-      });
-      const { openId, appId, name } = payload;
+      const payload = this.jwtVerifyRaw(cookieValue);
+      const { openId, appId, name } = payload ?? {};
       if (!isNonEmptyString(openId) || !isNonEmptyString(appId) || !isNonEmptyString(name)) {
         console.warn("[Auth] Session payload missing required fields");
         return null;
       }
-      return {
-        openId,
-        appId,
-        name
-      };
+      return { openId, appId, name };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
       return null;
@@ -1464,6 +1484,7 @@ var analyticsRouter = router({
 
 // server/routers/botLeads.ts
 import { z as z4 } from "zod";
+import { randomUUID } from "node:crypto";
 var botLeadsRouter = router({
   /**
    * Save a new lead from the chatbot
@@ -1481,7 +1502,7 @@ var botLeadsRouter = router({
     try {
       const db = await getDb();
       if (!db) throw new Error("Database not available");
-      const leadId = crypto.randomUUID();
+      const leadId = randomUUID();
       const now = Date.now();
       const result = await db.execute(
         `INSERT INTO bot_leads (
@@ -2010,8 +2031,7 @@ import { eq as eq3 } from "drizzle-orm";
 
 // server/_core/clientAuth.ts
 import bcrypt from "bcrypt";
-import crypto2 from "node:crypto";
-import { SignJWT as SignJWT2, jwtVerify as jwtVerify2 } from "jose";
+import crypto from "node:crypto";
 import { parse as parseCookies } from "cookie";
 var BCRYPT_ROUNDS = 12;
 var MAX_LOGIN_ATTEMPTS = 5;
@@ -2028,18 +2048,37 @@ function validatePassword(password) {
 }
 var hashPassword = (password) => bcrypt.hash(password, BCRYPT_ROUNDS);
 var verifyPassword = (password, hash) => bcrypt.compare(password, hash);
-var generateToken = () => crypto2.randomBytes(32).toString("hex");
+var generateToken = () => crypto.randomBytes(32).toString("hex");
+function b64url(input) {
+  const buf = typeof input === "string" ? Buffer.from(input) : input;
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
 function getSecret() {
-  return new TextEncoder().encode(ENV.cookieSecret || "fallback-dev-secret-change-in-prod");
+  return ENV.cookieSecret || "fallback-dev-secret-change-in-prod";
 }
 async function createClientSession(payload) {
+  const secret = getSecret();
   const expiresAt = Math.floor((Date.now() + THIRTY_DAYS_MS) / 1e3);
-  return new SignJWT2(payload).setProtectedHeader({ alg: "HS256", typ: "JWT" }).setExpirationTime(expiresAt).sign(getSecret());
+  const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = b64url(JSON.stringify({ ...payload, exp: expiresAt, iat: Math.floor(Date.now() / 1e3) }));
+  const sig = b64url(crypto.createHmac("sha256", secret).update(`${header}.${body}`).digest());
+  return `${header}.${body}.${sig}`;
 }
 async function verifyClientSession(token) {
   try {
-    const { payload } = await jwtVerify2(token, getSecret(), { algorithms: ["HS256"] });
-    const { clientId, email, businessName } = payload;
+    const secret = getSecret();
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const expected = b64url(
+      crypto.createHmac("sha256", secret).update(`${parts[0]}.${parts[1]}`).digest()
+    );
+    const sigBuf = Buffer.from(expected);
+    const tokBuf = Buffer.from(parts[2].padEnd(parts[2].length + (4 - parts[2].length % 4) % 4, "="), "base64url");
+    if (sigBuf.length !== tokBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, tokBuf)) return null;
+    const parsed = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    if (typeof parsed.exp === "number" && Math.floor(Date.now() / 1e3) > parsed.exp) return null;
+    const { clientId, email, businessName } = parsed;
     if (typeof clientId !== "number" || typeof email !== "string" || typeof businessName !== "string") return null;
     return { clientId, email, businessName };
   } catch {
@@ -2400,7 +2439,7 @@ var clientPortalRouter = router({
 });
 
 // server/routers/payment.ts
-import crypto3 from "crypto";
+import crypto2 from "crypto";
 import { nanoid } from "nanoid";
 import { z as z8 } from "zod";
 var PLANS = {
@@ -2414,7 +2453,7 @@ function buildSignature(params, passphrase) {
   const sortedKeys = Object.keys(params).sort();
   const queryString = sortedKeys.filter((k) => k !== "signature" && params[k] !== "").map((k) => `${k}=${encodeURIComponent(params[k]).replace(/%20/g, "+")}`).join("&");
   const withPassphrase = passphrase ? `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}` : queryString;
-  return crypto3.createHash("md5").update(withPassphrase).digest("hex");
+  return crypto2.createHash("md5").update(withPassphrase).digest("hex");
 }
 var paymentRouter = router({
   createSubscriptionForm: publicProcedure.input(z8.object({ plan: z8.enum(["starter", "chatbot", "social", "complete", "fullsuite"]) })).mutation(({ input }) => {
@@ -2573,7 +2612,7 @@ function serveStatic(app) {
 
 // server/whatsapp-webhook.ts
 import { Router } from "express";
-import crypto4 from "crypto";
+import crypto3 from "crypto";
 var router2 = Router();
 var waConversations = /* @__PURE__ */ new Map();
 setInterval(() => {
@@ -2596,9 +2635,9 @@ function verifyMetaSignature(rawBody, signature, secret) {
   if (!secret || !signature) return false;
   const [algo, hash] = signature.split("=");
   if (algo !== "sha256" || !hash) return false;
-  const expected = crypto4.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expected = crypto3.createHmac("sha256", secret).update(rawBody).digest("hex");
   try {
-    return crypto4.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
+    return crypto3.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
   } catch {
     return false;
   }
@@ -2705,15 +2744,15 @@ var whatsapp_webhook_default = router2;
 
 // server/facebook-webhook.ts
 import { Router as Router2 } from "express";
-import crypto5 from "crypto";
+import crypto4 from "crypto";
 var router3 = Router2();
 function verifyMetaSignature2(rawBody, signature, appSecret) {
   if (!appSecret || !signature) return false;
   const [algo, hash] = signature.split("=");
   if (algo !== "sha256" || !hash) return false;
-  const expected = crypto5.createHmac("sha256", appSecret).update(rawBody).digest("hex");
+  const expected = crypto4.createHmac("sha256", appSecret).update(rawBody).digest("hex");
   try {
-    return crypto5.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
+    return crypto4.timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(hash, "hex"));
   } catch {
     return false;
   }
@@ -2890,7 +2929,7 @@ var facebook_webhook_default = router3;
 
 // server/payfast-webhook.ts
 import { Router as Router3 } from "express";
-import crypto6 from "crypto";
+import crypto5 from "crypto";
 var router4 = Router3();
 var PAYFAST_IPS = /* @__PURE__ */ new Set([
   "41.74.179.194",
@@ -2916,7 +2955,7 @@ function buildSignature2(params, passphrase) {
   const sortedKeys = Object.keys(params).sort();
   const queryString = sortedKeys.filter((k) => k !== "signature" && params[k] !== "").map((k) => `${k}=${encodeURIComponent(params[k]).replace(/%20/g, "+")}`).join("&");
   const withPassphrase = passphrase ? `${queryString}&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}` : queryString;
-  return crypto6.createHash("md5").update(withPassphrase).digest("hex");
+  return crypto5.createHash("md5").update(withPassphrase).digest("hex");
 }
 router4.post("/notify", async (req, res) => {
   res.status(200).send("OK");
@@ -2937,7 +2976,7 @@ async function processItn(req) {
   const expectedSig = buildSignature2(params, ENV.payfastPassphrase);
   let sigValid = false;
   try {
-    sigValid = crypto6.timingSafeEqual(
+    sigValid = crypto5.timingSafeEqual(
       Buffer.from(expectedSig, "hex"),
       Buffer.from(receivedSig, "hex")
     );

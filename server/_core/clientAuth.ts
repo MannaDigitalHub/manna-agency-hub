@@ -5,7 +5,6 @@
  */
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
-import { SignJWT, jwtVerify } from "jose";
 import { parse as parseCookies } from "cookie";
 import type { Request } from "express";
 import { CLIENT_COOKIE_NAME, THIRTY_DAYS_MS } from "@shared/const";
@@ -43,22 +42,40 @@ export type ClientSessionPayload = {
   businessName: string;
 };
 
-function getSecret() {
-  return new TextEncoder().encode(ENV.cookieSecret || "fallback-dev-secret-change-in-prod");
+// ── Native HMAC-SHA256 JWT (no jose — node:crypto already imported above) ──
+function b64url(input: string | Buffer): string {
+  const buf = typeof input === "string" ? Buffer.from(input) : input;
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function getSecret(): string {
+  return ENV.cookieSecret || "fallback-dev-secret-change-in-prod";
 }
 
 export async function createClientSession(payload: ClientSessionPayload): Promise<string> {
+  const secret = getSecret();
   const expiresAt = Math.floor((Date.now() + THIRTY_DAYS_MS) / 1000);
-  return new SignJWT(payload as Record<string, unknown>)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setExpirationTime(expiresAt)
-    .sign(getSecret());
+  const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = b64url(JSON.stringify({ ...payload, exp: expiresAt, iat: Math.floor(Date.now() / 1000) }));
+  const sig = b64url(crypto.createHmac("sha256", secret).update(`${header}.${body}`).digest());
+  return `${header}.${body}.${sig}`;
 }
 
 export async function verifyClientSession(token: string): Promise<ClientSessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
-    const { clientId, email, businessName } = payload as Record<string, unknown>;
+    const secret = getSecret();
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const expected = b64url(
+      crypto.createHmac("sha256", secret).update(`${parts[0]}.${parts[1]}`).digest()
+    );
+    const sigBuf = Buffer.from(expected);
+    const tokBuf = Buffer.from(parts[2].padEnd(parts[2].length + ((4 - parts[2].length % 4) % 4), "="), "base64url");
+    if (sigBuf.length !== tokBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, tokBuf)) return null;
+    const parsed = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    if (typeof parsed.exp === "number" && Math.floor(Date.now() / 1000) > parsed.exp) return null;
+    const { clientId, email, businessName } = parsed;
     if (typeof clientId !== "number" || typeof email !== "string" || typeof businessName !== "string") return null;
     return { clientId, email, businessName };
   } catch {
