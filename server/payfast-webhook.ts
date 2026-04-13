@@ -34,11 +34,13 @@ const PAYFAST_IPS = new Set([
 ]);
 
 // ─── Plan amount map (ITN item_name → expected gross amount in ZAR) ──────────
+// item_name must match exactly what payment.ts sends in the `item_name` field.
 const PLAN_AMOUNTS: Record<string, number> = {
-  'WhatsApp Starter': 800,
-  'AI Complete': 2500,
-  'Chatbot Only': 600,
-  'Social Media Manager': 1500,
+  'WhatsApp Starter':      1200,
+  'AI Website Chatbot':     950,
+  'Social Media AI':       2000,
+  'AI Complete':           2800,
+  'Full AI Business Suite': 4500,
 };
 
 // ─── Build the PayFast signature ─────────────────────────────

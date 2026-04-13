@@ -244,7 +244,7 @@ var init_schema = __esm({
       clientId: int("clientId").notNull().unique(),
       payfastToken: varchar("payfastToken", { length: 100 }),
       payfastSubscriptionId: varchar("payfastSubscriptionId", { length: 100 }),
-      packageName: mysqlEnum("packageName", ["starter", "bundle", "chatbot", "social"]).notNull(),
+      packageName: mysqlEnum("packageName", ["starter", "chatbot", "social", "complete", "fullsuite"]).notNull(),
       amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
       status: mysqlEnum("status", ["active", "paused", "cancelled", "failed"]).default("active").notNull(),
       failedCount: int("failedCount").default(0),
@@ -2902,10 +2902,11 @@ var PAYFAST_IPS = /* @__PURE__ */ new Set([
   "::1"
 ]);
 var PLAN_AMOUNTS = {
-  "WhatsApp Starter": 800,
-  "AI Complete": 2500,
-  "Chatbot Only": 600,
-  "Social Media Manager": 1500
+  "WhatsApp Starter": 1200,
+  "AI Website Chatbot": 950,
+  "Social Media AI": 2e3,
+  "AI Complete": 2800,
+  "Full AI Business Suite": 4500
 };
 function buildSignature2(params, passphrase) {
   const sortedKeys = Object.keys(params).sort();

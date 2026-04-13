@@ -281,7 +281,7 @@ export const subscriptions = mysqlTable("subscriptions", {
   clientId: int("clientId").notNull().unique(),
   payfastToken: varchar("payfastToken", { length: 100 }),
   payfastSubscriptionId: varchar("payfastSubscriptionId", { length: 100 }),
-  packageName: mysqlEnum("packageName", ["starter", "bundle", "chatbot", "social"]).notNull(),
+  packageName: mysqlEnum("packageName", ["starter", "chatbot", "social", "complete", "fullsuite"]).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   status: mysqlEnum("status", ["active", "paused", "cancelled", "failed"]).default("active").notNull(),
   failedCount: int("failedCount").default(0),
