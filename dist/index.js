@@ -2457,14 +2457,18 @@ var appRouter = router({
       if (input.email !== ENV.adminEmail || input.password !== ENV.adminPassword) {
         throw new TRPCError4({ code: "UNAUTHORIZED", message: "Invalid email or password" });
       }
-      await upsertUser({
-        openId: "admin",
-        name: "Admin",
-        email: input.email,
-        loginMethod: "password",
-        role: "admin",
-        lastSignedIn: /* @__PURE__ */ new Date()
-      });
+      try {
+        await upsertUser({
+          openId: "admin",
+          name: "Admin",
+          email: input.email,
+          loginMethod: "password",
+          role: "admin",
+          lastSignedIn: /* @__PURE__ */ new Date()
+        });
+      } catch (dbErr) {
+        console.warn("[auth.login] upsertUser skipped:", dbErr?.message ?? dbErr);
+      }
       const sessionToken = await sdk.createSessionToken("admin", {
         name: "Admin",
         expiresInMs: ONE_YEAR_MS

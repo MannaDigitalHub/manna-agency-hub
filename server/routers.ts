@@ -30,14 +30,20 @@ export const appRouter = router({
         if (input.email !== ENV.adminEmail || input.password !== ENV.adminPassword) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
         }
-        await db.upsertUser({
-          openId: "admin",
-          name: "Admin",
-          email: input.email,
-          loginMethod: "password",
-          role: "admin",
-          lastSignedIn: new Date(),
-        });
+        // Best-effort — users table may not exist yet on fresh MySQL installs.
+        // Login must still succeed so the JWT is issued regardless.
+        try {
+          await db.upsertUser({
+            openId: "admin",
+            name: "Admin",
+            email: input.email,
+            loginMethod: "password",
+            role: "admin",
+            lastSignedIn: new Date(),
+          });
+        } catch (dbErr: any) {
+          console.warn("[auth.login] upsertUser skipped:", dbErr?.message ?? dbErr);
+        }
         const sessionToken = await sdk.createSessionToken("admin", {
           name: "Admin",
           expiresInMs: ONE_YEAR_MS,
