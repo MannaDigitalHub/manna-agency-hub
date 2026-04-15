@@ -232,9 +232,9 @@ function HeroSection() {
 
       {/* Scrolling ticker */}
       <div className="absolute bottom-0 left-0 right-0 py-4 bg-gradient-to-r from-lime-900/10 via-lime-800/5 to-lime-900/10 border-t border-b border-white/5 overflow-hidden">
-        <div className="animate-marquee flex whitespace-nowrap">
+        <div className="animate-marquee">
           {["WhatsApp Automation", "AI Chatbots", "Lead Follow-Up", "Social Media AI", "24/7 Response", "Website Design", "South Africa", "Nigeria", "Kenya", "Ghana", "Garden Route", "George", "Cape Town", "POPIA Compliant", "Stop Losing Leads", "WhatsApp Automation", "AI Chatbots", "Lead Follow-Up", "Social Media AI", "24/7 Response", "Website Design", "South Africa", "Nigeria", "Kenya", "Ghana", "Garden Route", "George", "Cape Town", "POPIA Compliant", "Stop Losing Leads"].map((t, i) => (
-            <span key={i} className="mx-10 text-sm text-slate-400 flex items-center gap-3">
+            <span key={i} className="inline-flex items-center gap-2 px-10 text-sm text-slate-400 flex-none whitespace-nowrap">
               <span className="w-2 h-2 bg-lime-500/60 rounded-full shrink-0" />
               {t}
             </span>
@@ -754,8 +754,8 @@ function AboutSection() {
           <div>
             <span className="text-sm text-lime-400 font-medium uppercase tracking-wider">About Us</span>
             <h2 className="text-4xl sm:text-5xl font-bold text-white mt-4 mb-6">
-              SA is 3 years behind.<br />
-              <span className="text-gradient-green">That's your opportunity.</span>
+              The AI gap is<br />
+              <span className="text-gradient-green">your competitive edge.</span>
             </h2>
             <p className="text-slate-400 text-xl leading-relaxed mb-8">
               Most South African businesses are still doing manually what the rest of the world automated years ago. Manna Digital Hub exists to close that gap — affordably, practically, and fast.
