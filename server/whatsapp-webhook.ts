@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getDb } from './db';
-import { leads } from '../drizzle/schema';
+import { createBotLead } from './db';
 import { invokeLLM } from './_core/llm';
 import { MANNA_SYSTEM_PROMPT } from './routers/aiChat';
 
@@ -140,30 +139,17 @@ async function handleIncomingMessage(
       if (conv && !conv.leadCaptured && Object.keys(leadData).length > 0) {
         conv.leadCaptured = true;
         try {
-          const db = await getDb();
-          if (db) {
-            const leadId = crypto.randomUUID();
-            const now = Date.now();
-            await (db as any).execute(
-              `INSERT INTO bot_leads (
-                id, name, business_name, phone, email, language,
-                conversation_summary, status, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                leadId,
-                leadData.name || 'WhatsApp Lead',
-                leadData.business || null,
-                senderPhoneNumber,
-                leadData.email || null,
-                'auto',
-                `WhatsApp conversation with ${senderPhoneNumber}. Interest: ${leadData.interest || 'General'}`,
-                'new',
-                now,
-                now,
-              ]
-            );
-            console.log(`[WhatsApp] Lead captured: ${leadData.name} from ${senderPhoneNumber}`);
-          }
+          await createBotLead({
+            name: leadData.name || 'WhatsApp Lead',
+            businessName: leadData.business || null,
+            phone: senderPhoneNumber,
+            email: leadData.email || null,
+            language: 'auto',
+            conversationSummary: `WhatsApp conversation with ${senderPhoneNumber}. Interest: ${leadData.interest || 'General'}`,
+            source: 'whatsapp_bot',
+            status: 'new',
+          });
+          console.log(`[WhatsApp] Lead captured: ${leadData.name} from ${senderPhoneNumber}`);
         } catch (err) {
           console.error('[WhatsApp] Error saving lead:', err);
         }
@@ -209,7 +195,7 @@ async function sendWhatsAppMessage(
   }
 
   // Use the correct Meta Graph API URL
-  const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
 
   const payload = {
     messaging_product: 'whatsapp',

@@ -35,7 +35,7 @@ describe('WhatsApp Integration', () => {
   it('should validate WhatsApp API connectivity', async () => {
     try {
       const response = await fetch(
-        `https://graph.instagram.com/v18.0/${phoneNumberId}?access_token=${accessToken}`,
+        `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`,
         { method: 'GET' }
       );
       

@@ -71,9 +71,9 @@ describe('WhatsApp Webhook Integration', () => {
 
   it('should have correct API endpoint format', () => {
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    const expectedUrl = `https://graph.instagram.com/v18.0/${phoneNumberId}/messages`;
+    const expectedUrl = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
 
-    expect(expectedUrl).toContain('graph.instagram.com');
+    expect(expectedUrl).toContain('graph.facebook.com');
     expect(expectedUrl).toContain('/messages');
     expect(expectedUrl).toContain(phoneNumberId);
   });

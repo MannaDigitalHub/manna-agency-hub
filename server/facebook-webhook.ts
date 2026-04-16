@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { createFacebookLead, getFacebookLeadByLeadgenId, createLead } from './db';
+import { createFacebookLead, getFacebookLeadByLeadgenId, updateFacebookLead, createLead } from './db';
 import { notifyOwner } from './_core/notification';
 
 const router = Router();
@@ -95,6 +95,10 @@ async function processLeadgenWebhook(webhookData: {
     fbCreatedTime: webhookData.created_time ? new Date(webhookData.created_time * 1000) : undefined,
   });
 
+  // Retrieve the saved lead's id for later updates
+  const savedLead = await getFacebookLeadByLeadgenId(leadgenId);
+  const fbLeadId = savedLead?.id;
+
   // Auto-sync to CRM leads table
   const leadName = fieldData.full_name || fieldData.name || 'Facebook Lead';
   try {
@@ -120,6 +124,9 @@ async function processLeadgenWebhook(webhookData: {
     try {
       await sendWhatsAppFollowUp(phone, leadName);
       console.log(`[Facebook] WhatsApp follow-up sent to ${phone}`);
+      if (fbLeadId) {
+        await updateFacebookLead(fbLeadId, { whatsappFollowUpSent: 1 });
+      }
     } catch (err) {
       console.error('[Facebook] WhatsApp follow-up failed:', err);
     }
@@ -193,7 +200,7 @@ async function sendWhatsAppFollowUp(phoneNumber: string, leadName: string): Prom
 
   const message = `Hi ${firstName}! 👋\n\nThank you for your interest in Manna Digital Hub! We noticed you filled out our form on Facebook.\n\nWe specialise in AI-powered WhatsApp automation that helps businesses respond to every customer 24/7 — even during load-shedding! ⚡\n\nWould you like to:\n\n1️⃣ Book a free discovery call\n2️⃣ See a live demo of our AI bot\n3️⃣ Get a custom quote for your business\n\nJust reply with 1, 2, or 3 and I'll get you sorted! 🚀`;
 
-  const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
 
   const payload = {
     messaging_product: 'whatsapp',

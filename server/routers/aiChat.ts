@@ -1,7 +1,7 @@
 import { router, publicProcedure } from '../_core/trpc';
 import { z } from 'zod';
 import { invokeLLM } from '../_core/llm';
-import { getDb } from '../db';
+import { createBotLead } from '../db';
 
 // ─── Manna Bot System Prompt ─────────────────────────────────
 const MANNA_SYSTEM_PROMPT = `You are **Manna Bot**, the AI-powered virtual assistant for **Manna Digital Hub** — a South African AI automation agency that helps businesses stop losing leads, clients, and revenue by automating their customer communication.
@@ -213,31 +213,16 @@ function extractLeadData(response: string): {
 // ─── Save lead to database ───────────────────────────────────
 async function saveLeadToDb(leadData: Record<string, string>, conversationSummary: string) {
   try {
-    const db = await getDb();
-    if (!db) return;
-
-    const leadId = crypto.randomUUID();
-    const now = Date.now();
-
-    await (db as any).execute(
-      `INSERT INTO bot_leads (
-        id, name, business_name, phone, email, language,
-        conversation_summary, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        leadId,
-        leadData.name || 'Unknown',
-        leadData.business || null,
-        leadData.phone || null,
-        leadData.email || null,
-        'en',
-        conversationSummary,
-        'new',
-        now,
-        now,
-      ]
-    );
-
+    await createBotLead({
+      name: leadData.name || 'Unknown',
+      businessName: leadData.business || null,
+      phone: leadData.phone || null,
+      email: leadData.email || null,
+      language: 'en',
+      conversationSummary,
+      source: 'website_bot',
+      status: 'new',
+    });
     console.log(`[Manna Bot] Lead captured: ${leadData.name} (${leadData.business || 'N/A'})`);
   } catch (error) {
     console.error('[Manna Bot] Error saving lead:', error);
