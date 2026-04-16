@@ -154,3 +154,15 @@
 - [x] Send owner notification on new Facebook lead
 - [x] Write vitest tests for Facebook webhook and lead processing
 - [x] Verify end-to-end flow (89 tests passing)
+
+## Phase 18: WhatsApp / Facebook Integration Bug Fixes
+- [x] Fix deprecated WhatsApp Cloud API version: v18.0 → v22.0 in whatsapp-webhook.ts
+- [x] Fix deprecated WhatsApp Cloud API version: v18.0 → v22.0 in facebook-webhook.ts (sendWhatsAppFollowUp)
+- [x] Replace broken raw SQL in whatsapp-webhook.ts with proper createBotLead() ORM call
+  - Bug: snake_case column names used (business_name, created_at) but schema uses camelCase (businessName, createdAt)
+  - Bug: UUID string inserted into auto-increment integer id column
+- [x] Replace broken raw SQL in aiChat.ts (saveLeadToDb) with proper createBotLead() ORM call (same issues)
+- [x] Track whatsappFollowUpSent flag in facebook_leads table after successful WhatsApp follow-up dispatch
+- [x] Fix test files using wrong API host graph.instagram.com → graph.facebook.com
+  - server/whatsapp-webhook.test.ts (endpoint format test)
+  - server/whatsapp.test.ts (API connectivity test)
