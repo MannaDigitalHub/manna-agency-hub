@@ -371,7 +371,10 @@ export async function callMannaBot(
     }
   }
 
-  const { cleanResponse: reply } = extractLeadData(rawReply);
+  const { cleanResponse } = extractLeadData(rawReply);
+  // Guard: if stripping [LEAD_CAPTURED] leaves nothing, fall back to the raw reply
+  // so the conversation history never contains an empty content block (Anthropic 400).
+  const reply = cleanResponse.trim() || rawReply;
   return { reply, rawReply };
 }
 
