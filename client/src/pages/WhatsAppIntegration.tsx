@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, AlertCircle, Copy, ExternalLink } from 'lucide-react';
 
 export default function WhatsAppIntegration() {
-  const [webhookUrl] = useState('https://manna-hub-bpkfxojz.manus.space/api/whatsapp/webhook');
-  const [verifyToken] = useState('manna_bot_verify_token_2024');
+  const [webhookUrl] = useState('https://mannadigitalhub.co.za/api/whatsapp/webhook');
+  const [verifyToken] = useState('manna_webhook_token');
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = (text: string) => {

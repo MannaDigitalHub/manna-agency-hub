@@ -28,16 +28,33 @@ Owner: **Melanie Muller (Mela)** | +27 73 406 1526 | info@mannadigitalhub.co.za
 - `GET/POST /api/facebook/webhook` — Facebook Lead Ads webhook
 - `/api/trpc/*` — all tRPC procedures
 
+## Deployment — TrueHost
+- **Domain**: https://mannadigitalhub.co.za
+- **SSH user**: qsfttpdi
+- **SSH command**: `ssh qsfttpdi@mannadigitalhub.co.za`
+- **Project path**: `/home/qsfttpdi/manna-agency-hub`
+- **Process manager**: PM2 — app name `manna-hub`
+- **Webhook URLs**:
+  - WhatsApp: `https://mannadigitalhub.co.za/api/whatsapp/webhook`
+  - Facebook: `https://mannadigitalhub.co.za/api/facebook/webhook`
+
 ## Environment Variables Required
 ```
 DATABASE_URL                   # MySQL connection string
-OPENAI_API_KEY                 # Forge API key (used for LLM, not OpenAI)
+BUILT_IN_FORGE_API_KEY         # LLM API key (Forge/Gemini)
+BUILT_IN_FORGE_API_URL         # LLM API base URL (optional if using default)
 WHATSAPP_PHONE_NUMBER_ID       # Meta Business Manager phone number ID
 WHATSAPP_BUSINESS_ACCOUNT_ID   # Meta Business Account ID
 WHATSAPP_ACCESS_TOKEN          # Meta permanent/long-lived access token
-WHATSAPP_VERIFY_TOKEN          # Webhook verify token (default: manna_webhook_token)
-FACEBOOK_VERIFY_TOKEN          # FB webhook verify token (default: manna_fb_verify_token)
+WHATSAPP_VERIFY_TOKEN          # manna_webhook_token
+FACEBOOK_VERIFY_TOKEN          # manna_fb_verify_token
+NODE_ENV                       # production
+PORT                           # 3000
 ```
+
+## IMPORTANT — Removed Platforms
+- **Manus** was completely removed — never reference manus.space or forge.manus.im
+- All webhooks, URLs and API calls use mannadigitalhub.co.za
 
 ## Critical Rules — Avoid These Bugs
 
