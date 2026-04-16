@@ -207,7 +207,7 @@ async function sendWhatsAppFollowUp(phoneNumber: string, leadName: string): Prom
     `Would you like to:\n1️⃣ Book a free discovery call\n2️⃣ See a live demo\n3️⃣ Get a custom quote\n\n` +
     `Reply 1, 2, or 3 and I'll get you sorted! 🚀`;
 
-  const resp = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+  const resp = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

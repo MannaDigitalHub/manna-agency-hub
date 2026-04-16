@@ -170,7 +170,7 @@ async function sendWhatsAppMessage(
   const token = ENV.whatsappAccessToken;
   if (!token) throw new Error('[WhatsApp] WHATSAPP_ACCESS_TOKEN not set');
 
-  const url = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
